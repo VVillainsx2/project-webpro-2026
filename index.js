@@ -3,34 +3,44 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
+// View engine setup
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-app.use(express.static('public'));
+// Middlewares
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
 
+// Database connection
 const db = new sqlite3.Database('./database.db', (err) => {
-    if (err) console.error('DB Error:', err.message);
-    else console.log('Connected to SQLite database.');
+    if (err) {
+        console.error('DB Error:', err.message);
+    } else {
+        console.log('Connected to SQLite database.');
+        // เปิดใช้งาน Foreign Keys Constraint ใน SQLite
+        db.run('PRAGMA foreign_keys = ON;');
+    }
 });
 
+// Settings
+const PROMPTPAY_NO = '0812345678'; // หมายเลข PromptPay ร้านค้า
+
+// -----------------------------------------------------------------------------
 // 1. หน้าต้อนรับ
-// 1. หน้าต้อนรับ
+// -----------------------------------------------------------------------------
 app.get('/', (req, res) => {
     const sessionId = req.query.session_id || 1;
 
-    // ดึงรายชื่อผู้ใช้ที่เคยเข้ามาใน session นี้แล้ว เพื่อมาแสดงใน dropdown
     db.all('SELECT * FROM SESSION_USERS WHERE session_id = ?', [sessionId], (err, existingUsers) => {
         if (err) existingUsers = [];
 
         res.render('index', {
             sessionId: sessionId,
             shopName: "ไอทีม่วนแจ่ม",
-            existingUsers: existingUsers, // ส่งรายชื่อผู้ใช้เดิมไปแสดง
+            existingUsers: existingUsers,
             instructions: [
                 "ใส่ชื่อเล่นของคุณและเริ่มสั่งอาหาร",
                 "เพิ่มรายการได้ทุกเมื่อ",
@@ -46,40 +56,32 @@ app.post('/join-session', (req, res) => {
         return res.send('<script>alert("กรุณากรอกชื่อเล่น"); window.history.back();</script>');
     }
 
-    // กำหนด table_id (ถ้าไม่มีให้ใช้ session_id หรือค่าเริ่มต้นเป็น 1)
     const targetTableId = table_id || session_id || 1;
-
-    // 1. ตรวจสอบ/สร้างข้อมูลโต๊ะในตาราง TABLES ก่อนเพื่อป้องกัน Foreign Key Error
     const ensureTableSql = `INSERT OR IGNORE INTO TABLES (table_id, table_number, status) VALUES (?, ?, 'AVAILABLE')`;
 
     db.run(ensureTableSql, [targetTableId, String(targetTableId)], (err) => {
         if (err) console.log('Ensure table notice:', err.message);
 
-        // 2. ค้นหา Session ที่กำลังใช้งาน (active) ของโต๊ะนี้
-        db.get('SELECT session_id FROM SESSIONS WHERE table_id = ? AND status = "active"', [targetTableId], (err, activeSession) => {
+        db.get('SELECT session_id FROM SESSIONS WHERE table_id = ? AND LOWER(status) = "active"', [targetTableId], (err, activeSession) => {
             if (err) {
                 console.error('Error checking active session:', err.message);
                 return res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบ Session');
             }
 
-            // ฟังก์ชันสำหรับบันทึกชื่อผู้ใช้ลง SESSION_USERS
             const saveUserAndRedirect = (sessionIdToUse) => {
-                const sqlUser = `INSERT INTO SESSION_USERS (session_id, name) VALUES (?, ?)`;
+                const sqlUser = `INSERT INTO SESSION_USERS (session_id, name, is_paid) VALUES (?, ?, 0)`;
                 db.run(sqlUser, [sessionIdToUse, name.trim()], function (err) {
                     if (err) {
                         console.error('Error saving user:', err.message);
                         return res.status(500).send('เกิดข้อผิดพลาดในการบันทึกข้อมูลผู้ใช้');
                     }
-                    // Redirect พร้อม session_id และ user_id
                     res.redirect(`/menu?session_id=${sessionIdToUse}&user_id=${this.lastID}`);
                 });
             };
 
             if (activeSession) {
-                // มี Session เดิมเปิดอยู่แล้ว ใช้ session_id นั้นต่อได้เลย
                 saveUserAndRedirect(activeSession.session_id);
             } else {
-                // ถ้ายังไม่มี Session ให้สร้างใหม่ลงในตาราง SESSIONS
                 const createSessionSql = `INSERT INTO SESSIONS (table_id, status) VALUES (?, 'active')`;
                 db.run(createSessionSql, [targetTableId], function (err) {
                     if (err) {
@@ -93,7 +95,9 @@ app.post('/join-session', (req, res) => {
     });
 });
 
-// 3. หน้าแสดงรายการอาหาร (Menu Page)
+// -----------------------------------------------------------------------------
+// 2. หน้าแสดงรายการอาหาร (Menu Page)
+// -----------------------------------------------------------------------------
 app.get('/menu', (req, res) => {
     const { session_id, user_id } = req.query;
 
@@ -127,7 +131,9 @@ app.get('/menu', (req, res) => {
     });
 });
 
-// 4. รับฟอร์มกดเพิ่มรายการอาหารลงตะกร้า (status = 'pending')
+// -----------------------------------------------------------------------------
+// 3. รับฟอร์มเพิ่มรายการอาหารลงตะกร้า (status = 'pending')
+// -----------------------------------------------------------------------------
 app.post('/order/add', (req, res) => {
     const { session_id, user_id, menu_item_id, qty, note, shared_user_ids } = req.body;
     const itemQty = parseInt(qty) || 1;
@@ -141,19 +147,23 @@ app.post('/order/add', (req, res) => {
         ownersList = [user_id];
     }
 
-    db.get('SELECT order_id FROM ORDERS WHERE session_id = ? AND status = "active"', [session_id], (err, order) => {
+    db.get('SELECT order_id FROM ORDERS WHERE session_id = ? AND LOWER(status) = "active"', [session_id], (err, order) => {
         if (err) return res.status(500).send('เกิดข้อผิดพลาดในการตรวจสอบออเดอร์');
 
         const insertOrderItem = (orderId) => {
             const sqlItem = `INSERT INTO ORDER_ITEMS (order_id, menu_item_id, qty, note, status) VALUES (?, ?, ?, ?, 'pending')`;
-            
+
             db.run(sqlItem, [orderId, menu_item_id, itemQty, note || ''], function (err) {
                 if (err) return res.status(500).send('ไม่สามารถเพิ่มรายการอาหารได้');
 
                 const orderItemId = this.lastID;
+                if (ownersList.length === 0) {
+                    return res.redirect(`/menu?session_id=${session_id}&user_id=${user_id}`);
+                }
+
                 const placeholders = ownersList.map(() => '(?, ?)').join(', ');
                 const sqlOwners = `INSERT INTO ORDER_ITEM_OWNERS (order_item_id, user_id) VALUES ${placeholders}`;
-                
+
                 const ownerParams = [];
                 ownersList.forEach(uId => {
                     ownerParams.push(orderItemId, uId);
@@ -184,10 +194,10 @@ app.post('/api/add-user', (req, res) => {
         return res.status(400).json({ error: 'กรุณากรอกชื่อเล่น' });
     }
 
-    const sql = `INSERT INTO SESSION_USERS (session_id, name) VALUES (?, ?)`;
+    const sql = `INSERT INTO SESSION_USERS (session_id, name, is_paid) VALUES (?, ?, 0)`;
     db.run(sql, [session_id || 1, name.trim()], function (err) {
         if (err) return res.status(500).json({ error: 'เกิดข้อผิดพลาดในการบันทึกข้อมูล' });
-        
+
         res.json({
             user_id: this.lastID,
             name: name.trim()
@@ -195,7 +205,9 @@ app.post('/api/add-user', (req, res) => {
     });
 });
 
-// 5. หน้าแสดงตะกร้าสินค้า (ดึงเฉพาะรายการที่ User ปัจจุบันเป็นคนสั่งและยังไม่ส่งเข้าครัว)
+// -----------------------------------------------------------------------------
+// 4. หน้าแสดงตะกร้าสินค้า
+// -----------------------------------------------------------------------------
 app.get('/cart', (req, res) => {
     const { session_id, user_id } = req.query;
 
@@ -209,7 +221,7 @@ app.get('/cart', (req, res) => {
         db.all('SELECT * FROM SESSION_USERS WHERE session_id = ?', [session_id], (err, sessionUsers) => {
             if (err) sessionUsers = [];
 
-            db.get('SELECT order_id FROM ORDERS WHERE session_id = ? AND status = "active"', [session_id], (err, order) => {
+            db.get('SELECT order_id FROM ORDERS WHERE session_id = ? AND LOWER(status) = "active"', [session_id], (err, order) => {
                 if (err || !order) {
                     return res.render('cart', {
                         currentUser,
@@ -224,7 +236,6 @@ app.get('/cart', (req, res) => {
                     });
                 }
 
-                // ดึงรายการอาหารทั้งหมดในโต๊ะที่ยังรอส่งเข้าครัว (status = 'pending')
                 const query = `
                     SELECT 
                         oi.order_item_id AS id,
@@ -261,7 +272,6 @@ app.get('/cart', (req, res) => {
                         const shareCount = ownerIds.length || 1;
                         const pricePerPerson = itemTotal / shareCount;
 
-                        // ตรวจสอบว่าผู้ใช้ปัจจุบันมีส่วนหารในรายการนี้หรือไม่
                         const isMyItem = ownerIds.includes(String(user_id));
 
                         if (isMyItem) {
@@ -297,17 +307,18 @@ app.get('/cart', (req, res) => {
     });
 });
 
-// 6. API ยืนยันออร์เดอร์ส่งเข้าครัว (เปลี่ยน status จาก 'pending' -> 'cooking')
+// -----------------------------------------------------------------------------
+// 5. API ยืนยันออร์เดอร์ส่งเข้าครัว (pending -> cooking)
+// -----------------------------------------------------------------------------
 app.post('/api/orders/send-to-kitchen', (req, res) => {
     const { tableNo, userId } = req.body;
     const sessionId = tableNo;
 
-    db.get('SELECT order_id FROM ORDERS WHERE session_id = ? AND status = "active"', [sessionId], (err, order) => {
+    db.get('SELECT order_id FROM ORDERS WHERE session_id = ? AND LOWER(status) = "active"', [sessionId], (err, order) => {
         if (err || !order) {
             return res.status(400).json({ success: false, message: 'ไม่พบออเดอร์ที่เปิดใช้งานอยู่' });
         }
 
-        // อัปเดตสถานะเป็น 'cooking' เฉพาะรายการที่เป็นของ user คนนี้ และยังคงสถานะ 'pending' อยู่
         const sqlUpdate = `
             UPDATE ORDER_ITEMS 
             SET status = 'cooking' 
@@ -333,7 +344,9 @@ app.post('/api/orders/send-to-kitchen', (req, res) => {
     });
 });
 
-// 7. ลบรายการอาหารในตะกร้า (AJAX & Form Response)
+// -----------------------------------------------------------------------------
+// 6. ลบรายการอาหารในตะกร้า
+// -----------------------------------------------------------------------------
 app.delete('/api/cart/item/:id', (req, res) => {
     const itemId = req.params.id;
 
@@ -360,8 +373,8 @@ app.post('/order/item/delete', (req, res) => {
     });
 });
 
+// Reset Database API
 app.delete('/resetdatabase', (req, res) => {
-    // 1. คำสั่ง SQL สำหรับล้างข้อมูล
     const sql = `
         PRAGMA foreign_keys = OFF;
         DELETE FROM ORDER_ITEM_OWNERS;
@@ -388,13 +401,10 @@ app.delete('/resetdatabase', (req, res) => {
             return res.status(500).json({ error: err.message });
         }
 
-        // 2. ตรวจสอบว่าในตาราง TABLES มีข้อมูลโต๊ะอยู่หรือไม่
         db.get('SELECT table_id FROM TABLES LIMIT 1', [], (err, tableRow) => {
-            
-            // ฟังก์ชันสำหรับสร้าง Session ใหม่เมื่อมี table_id ที่ถูกต้องแล้ว
             const createSession = (validTableId) => {
                 const createSessionSql = `INSERT INTO SESSIONS (table_id, status) VALUES (?, 'active')`;
-                
+
                 db.run(createSessionSql, [validTableId], function (err) {
                     if (err) {
                         console.log('Error creating new session:', err.message);
@@ -410,15 +420,12 @@ app.delete('/resetdatabase', (req, res) => {
             };
 
             if (tableRow) {
-                // กรณีมีข้อมูลโต๊ะในตาราง TABLES อยู่แล้ว ให้ใช้ table_id นั้น
                 createSession(tableRow.table_id);
             } else {
-                // กรณีไม่มีข้อมูลในตาราง TABLES เลย ให้สร้างโต๊ะ 1 ขึ้นมาก่อน
                 const defaultTableId = req.body?.table_id || req.query?.table_id || 1;
-                
+
                 db.run(`INSERT INTO TABLES (table_id, status) VALUES (?, 'AVAILABLE')`, [defaultTableId], function (err) {
                     if (err) {
-                        // หากใส่ table_id ไม่ได้ ให้ลอง INSERT แบบ auto-increment
                         db.run(`INSERT INTO TABLES (status) VALUES ('AVAILABLE')`, [], function (err2) {
                             createSession(this.lastID || defaultTableId);
                         });
@@ -431,6 +438,348 @@ app.delete('/resetdatabase', (req, res) => {
     });
 });
 
+// -----------------------------------------------------------------------------
+// 7. ส่วนงานแคชเชียร์ (Cashier)
+// -----------------------------------------------------------------------------
+
+// หน้าหลักแคชเชียร์ (แสดงผังโต๊ะ)
+app.get('/cashier', (req, res) => {
+    const sql = `
+        SELECT 
+            t.table_id,
+            t.table_number,
+            CASE 
+                WHEN COUNT(s.session_id) > 0 THEN 'OCCUPIED'
+                ELSE 'AVAILABLE'
+            END AS status,
+            CASE 
+                WHEN COUNT(s.session_id) > 0 THEN 'OCCUPIED'
+                ELSE 'AVAILABLE'
+            END AS calculated_status
+        FROM TABLES t
+        LEFT JOIN SESSIONS s 
+          ON CAST(s.table_id AS TEXT) = CAST(t.table_id AS TEXT) 
+         AND LOWER(TRIM(s.status)) = 'active'
+        GROUP BY t.table_id, t.table_number
+        ORDER BY CAST(t.table_number AS INTEGER) ASC
+    `;
+
+    db.all(sql, [], (err, tables) => {
+        if (err) {
+            console.error('Error fetching tables:', err);
+            return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลโต๊ะ');
+        }
+        res.render('cashier', { tables: tables || [] });
+    });
+});
+
+// หน้าแสดงรายละเอียดออเดอร์รายโต๊ะ
+app.get('/cashier/table/:table_id', (req, res) => {
+    const tableId = req.params.table_id;
+
+    const sessionSql = `
+        SELECT session_id 
+        FROM SESSIONS 
+        WHERE CAST(table_id AS TEXT) = CAST(? AS TEXT) 
+          AND LOWER(status) = 'active' 
+        ORDER BY session_id DESC 
+        LIMIT 1
+    `;
+
+    db.get(sessionSql, [tableId], (err, session) => {
+        if (err) {
+            console.error('Error fetching session:', err);
+            return res.status(500).send('เกิดข้อผิดพลาดในระบบ');
+        }
+
+        if (!session) {
+            return res.render('cas-tab-detail', { 
+                tableId: tableId, 
+                orders: [], 
+                splitDetails: [], 
+                totalPrice: 0 
+            });
+        }
+
+        const sessionId = session.session_id;
+
+        db.all(`SELECT user_id, name FROM SESSION_USERS WHERE session_id = ?`, [sessionId], (err, users) => {
+            if (err) users = [];
+
+            const orderSql = `
+                SELECT 
+                    oi.order_item_id,
+                    oi.status as item_status,
+                    mi.name,
+                    mi.price,
+                    mi.image_url,
+                    oi.qty as quantity,
+                    GROUP_CONCAT(su.name, ', ') as owner_names
+                FROM ORDER_ITEMS oi
+                JOIN ORDERS o ON oi.order_id = o.order_id
+                JOIN MENU_ITEMS mi ON oi.menu_item_id = mi.menu_item_id
+                LEFT JOIN ORDER_ITEM_OWNERS oio ON oi.order_item_id = oio.order_item_id
+                LEFT JOIN SESSION_USERS su ON oio.user_id = su.user_id
+                WHERE o.session_id = ?
+                GROUP BY oi.order_item_id
+                ORDER BY oi.order_item_id DESC
+            `;
+
+            db.all(orderSql, [sessionId], (err, rawOrders) => {
+                if (err) rawOrders = [];
+
+                let totalPrice = 0;
+                let userTotals = {};
+
+                users.forEach(u => {
+                    userTotals[u.name] = { total: 0, calcText: [] };
+                });
+
+                const processedOrders = rawOrders.map(order => {
+                    const itemTotal = order.price * order.quantity;
+                    totalPrice += itemTotal;
+
+                    let tags = order.owner_names ? order.owner_names.split(', ') : [];
+
+                    if (tags.length === 0) {
+                        if (users.length > 0) {
+                            const splitPrice = itemTotal / users.length;
+                            users.forEach(u => {
+                                if (userTotals[u.name]) {
+                                    userTotals[u.name].total += splitPrice;
+                                    userTotals[u.name].calcText.push(splitPrice.toFixed(2));
+                                }
+                            });
+                        }
+                    } else {
+                        const splitPrice = itemTotal / tags.length;
+                        tags.forEach(name => {
+                            if (userTotals[name]) {
+                                userTotals[name].total += splitPrice;
+                                userTotals[name].calcText.push(splitPrice.toFixed(2));
+                            }
+                        });
+                    }
+
+                    return {
+                        ...order,
+                        tags: tags,
+                        itemTotal: itemTotal,
+                        splitPricePerPerson: tags.length > 0 
+                            ? (itemTotal / tags.length) 
+                            : (users.length > 0 ? itemTotal / users.length : itemTotal)
+                    };
+                });
+
+                const splitDetails = Object.keys(userTotals).map(name => {
+                    const detail = userTotals[name];
+                    return {
+                        name: name,
+                        calcString: detail.calcText.length > 0 
+                                    ? detail.calcText.join(' + ') + ` = ${detail.total.toFixed(2)}.-` 
+                                    : `0.00.-`,
+                        total: detail.total
+                    };
+                });
+
+                res.render('cas-tab-detail', {
+                    tableId: tableId,
+                    orders: processedOrders,
+                    splitDetails: splitDetails,
+                    totalPrice: totalPrice
+                });
+            });
+        });
+    });
+});
+
+// หน้าแสดงการชำระเงินแยกจ่าย (Split Payment)
+app.get('/cashier/table/:table_id/payment', (req, res) => {
+    const tableId = req.params.table_id;
+
+    const sessionSql = `
+        SELECT session_id 
+        FROM SESSIONS 
+        WHERE CAST(table_id AS TEXT) = CAST(? AS TEXT) 
+          AND LOWER(status) = 'active' 
+        ORDER BY session_id DESC 
+        LIMIT 1
+    `;
+
+    db.get(sessionSql, [tableId], (err, session) => {
+        if (err || !session) {
+            return res.render('payment', {
+                tableId: tableId,
+                sessionId: null,
+                paymentList: [],
+                paidCount: 0,
+                totalUsers: 0
+            });
+        }
+
+        const sessionId = session.session_id;
+
+        // ดึงคอลัมน์ is_paid เพิ่มเติมเพื่อแสดงผลสถานะชำระเงินของแต่ละคน
+        const userSql = `
+            SELECT user_id, name, is_paid 
+            FROM SESSION_USERS 
+            WHERE CAST(session_id AS TEXT) = CAST(? AS TEXT)
+        `;
+
+        db.all(userSql, [sessionId], (err, users) => {
+            if (err) users = [];
+
+            const orderSql = `
+                SELECT 
+                    oi.order_item_id,
+                    mi.price,
+                    oi.qty as quantity,
+                    GROUP_CONCAT(su.user_id) as owner_ids
+                FROM ORDER_ITEMS oi
+                JOIN ORDERS o ON oi.order_id = o.order_id
+                JOIN MENU_ITEMS mi ON oi.menu_item_id = mi.menu_item_id
+                LEFT JOIN ORDER_ITEM_OWNERS oio ON oi.order_item_id = oio.order_item_id
+                LEFT JOIN SESSION_USERS su ON oio.user_id = su.user_id
+                WHERE o.session_id = ?
+                GROUP BY oi.order_item_id
+            `;
+
+            db.all(orderSql, [sessionId], (err, items) => {
+                if (err) items = [];
+
+                let paymentList = [];
+
+                if (users.length > 0) {
+                    let userPaymentData = {};
+
+                    users.forEach(u => {
+                        userPaymentData[u.user_id] = {
+                            user_id: u.user_id,
+                            name: u.name,
+                            amount: 0,
+                            isPaid: u.is_paid === 1
+                        };
+                    });
+
+                    items.forEach(item => {
+                        const itemTotal = item.price * item.quantity;
+                        const owners = item.owner_ids ? item.owner_ids.split(',') : [];
+
+                        if (owners.length === 0) {
+                            const splitPrice = itemTotal / users.length;
+                            users.forEach(u => {
+                                userPaymentData[u.user_id].amount += splitPrice;
+                            });
+                        } else {
+                            const splitPrice = itemTotal / owners.length;
+                            owners.forEach(uId => {
+                                if (userPaymentData[uId]) {
+                                    userPaymentData[uId].amount += splitPrice;
+                                }
+                            });
+                        }
+                    });
+
+                    paymentList = Object.values(userPaymentData).map(u => {
+                        const finalAmount = u.amount.toFixed(2);
+                        return {
+                            user_id: u.user_id,
+                            name: u.name,
+                            amount: finalAmount,
+                            isPaid: u.isPaid,
+                            qrUrl: `https://promptpay.io/${PROMPTPAY_NO}/${finalAmount}.png`
+                        };
+                    });
+                } else {
+                    let totalTablePrice = 0;
+                    items.forEach(item => {
+                        totalTablePrice += (item.price * item.quantity);
+                    });
+
+                    if (totalTablePrice > 0) {
+                        const finalAmount = totalTablePrice.toFixed(2);
+                        paymentList = [{
+                            user_id: 0,
+                            name: `ลูกค้าโต๊ะ ${tableId} (ชำระรวม)`,
+                            amount: finalAmount,
+                            isPaid: false,
+                            qrUrl: `https://promptpay.io/${PROMPTPAY_NO}/${finalAmount}.png`
+                        }];
+                    }
+                }
+
+                const paidCount = paymentList.filter(p => p.isPaid).length;
+
+                res.render('payment', {
+                    tableId: tableId,
+                    sessionId: sessionId,
+                    paymentList: paymentList,
+                    paidCount: paidCount,
+                    totalUsers: paymentList.length
+                });
+            });
+        });
+    });
+});
+
+// สลับสถานะการชำระเงิน (จ่ายแล้ว <-> รอชำระ)
+app.post('/cashier/table/:table_id/toggle-user-paid', (req, res) => {
+    const { userId, isPaid } = req.body;
+    const tableId = req.params.table_id;
+
+    if (userId === '0') {
+        return res.redirect(`/cashier/table/${tableId}/payment`);
+    }
+
+    const nextStatus = isPaid === 'true' ? 0 : 1;
+
+    db.run(`UPDATE SESSION_USERS SET is_paid = ? WHERE user_id = ?`, [nextStatus, userId], (err) => {
+        if (err) console.error('Error updating paid status:', err.message);
+        res.redirect(`/cashier/table/${tableId}/payment`);
+    });
+});
+
+// ปุ่มเสร็จสิ้น (ปิดโต๊ะ + เคลียร์ Active Session ทั้งหมด)
+app.post('/cashier/table/:table_id/finish-payment', (req, res) => {
+    const tableId = req.params.table_id;
+
+    const updateSessionsSql = `
+        UPDATE SESSIONS 
+        SET status = 'completed' 
+        WHERE LOWER(TRIM(status)) = 'active'
+          AND (
+            CAST(table_id AS TEXT) = CAST(? AS TEXT)
+            OR table_id IN (
+                SELECT t2.table_id 
+                FROM TABLES t1 
+                JOIN TABLES t2 ON t1.table_number = t2.table_number 
+                WHERE CAST(t1.table_id AS TEXT) = CAST(? AS TEXT)
+            )
+          )
+    `;
+
+    db.run(updateSessionsSql, [tableId, tableId], (err) => {
+        if (err) console.error('[Finish Payment Error] SESSIONS:', err);
+
+        const updateTablesSql = `
+            UPDATE TABLES 
+            SET status = 'AVAILABLE' 
+            WHERE CAST(table_id AS TEXT) = CAST(? AS TEXT)
+               OR table_number IN (
+                   SELECT table_number FROM TABLES WHERE CAST(table_id AS TEXT) = CAST(? AS TEXT)
+               )
+        `;
+
+        db.run(updateTablesSql, [tableId, tableId], (err) => {
+            if (err) console.error('[Finish Payment Error] TABLES:', err);
+            res.redirect('/cashier');
+        });
+    });
+});
+
+// -----------------------------------------------------------------------------
+// Start Server
+// -----------------------------------------------------------------------------
 app.listen(PORT, () => {
     console.log(`Server is running at http://localhost:${PORT}`);
 });

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบแคชเชียร์ - เลือกโต๊ะ</title>
+    <link rel="stylesheet" href="/css/cashier.css">
+</head>
+<body>
+    <div class="cashier-container">
+        <header class="cashier-header">
+            <h1>ระบบแคชเชียร์ - จัดการโต๊ะอาหาร</h1>
+        </header>
+
+        <main class="table-grid">
+            <% if (typeof tables !== 'undefined' && tables.length > 0) { %>
+                <% tables.forEach(function(table) { %>
+                    <% const isOccupied = table.calculated_status === 'OCCUPIED'; %>
+                    
+                    <a href="/cashier/table/<%= table.table_id %>" class="table-card <%= isOccupied ? 'occupied' : 'available' %>">
+                        <div class="table-number">โต๊ะ <%= table.table_number %></div>
+                        <div class="table-status">
+                            <%= isOccupied ? 'มีลูกค้า' : 'ว่าง' %>
+                        </div>
+                    </a>
+                <% }); %>
+            <% } else { %>
+                <div class="no-tables">ไม่พบข้อมูลโต๊ะในระบบ</div>
+            <% } %>
+        </main>
+    </div>
+
+    <!-- สคริปต์รีเฟรชหน้าอัตโนมัติทุกๆ 3 วินาที เพื่อเช็กสถานะโต๊ะล่าสุด -->
+    <script>
+        setInterval(() => {
+            window.location.reload();
+        }, 3000);
+    </script>
+</body>
+</html>

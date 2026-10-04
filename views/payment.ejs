@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ชำระเงินแยกจ่าย (Split Payment)</title>
+    <link rel="stylesheet" href="/css/payment.css">
+</head>
+<body>
+    <div class="payment-wrapper">
+        <!-- Header Bar -->
+        <header class="payment-header">
+            <a href="/cashier/table/<%= tableId %>" class="back-btn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </a>
+            <h1>ชำระเงิน (Payment)</h1>
+            <div class="header-space"></div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main class="cards-grid">
+            <% if (typeof paymentList !== 'undefined' && paymentList.length > 0) { %>
+                <% paymentList.forEach(function(person) { %>
+                    <div class="payment-card <%= person.isPaid ? 'paid' : 'pending' %>">
+                        <div class="card-top">
+                            <div class="person-name"><%= person.name %></div>
+                            <div class="promptpay-logo">
+                                <span class="pp-tag">PromptPay</span>
+                            </div>
+                        </div>
+
+                        <div class="card-body">
+                            <div class="amount-box">
+                                <span class="amount-val"><%= person.amount %></span>
+                                <span class="amount-unit">บาท</span>
+                                <div class="payment-type">PromptPay</div>
+                            </div>
+                            <div class="qr-box">
+                                <img src="<%= person.qrUrl %>" alt="QR Code <%= person.name %>" class="qr-code-img">
+                            </div>
+                        </div>
+
+                        <div class="card-footer">
+                            <form action="/cashier/table/<%= tableId %>/toggle-user-paid" method="POST" style="display:inline;">
+                                <input type="hidden" name="userId" value="<%= person.user_id %>">
+                                <input type="hidden" name="isPaid" value="<%= person.isPaid %>">
+                                <button type="submit" class="status-btn">
+                                    <% if (person.isPaid) { %>
+                                        <span class="status-confirmed">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                            สถานะ: ชำระเงินเรียบร้อย (Payment Confirmed)
+                                        </span>
+                                    <% } else { %>
+                                        <span class="status-waiting">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                            สถานะ: รอการชำระเงิน (Awaiting Payment)
+                                        </span>
+                                    <% } %>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                <% }); %>
+            <% } %>
+        </main>
+
+        <!-- Footer Actions Bar -->
+        <footer class="payment-footer">
+            <div class="summary-status">
+                สถานะการจ่าย: <strong><%= paidCount %>/<%= totalUsers %></strong> คนชำระแล้ว (Paid: <%= paidCount %> of <%= totalUsers %>)
+            </div>
+
+                
+                <form action="/cashier/table/<%= tableId %>/finish-payment" method="POST" style="display:inline;">
+                    <button type="submit" class="btn-done">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        เสร็จสิ้น (Done)
+                    </button>
+                </form>
+            </div>
+        </footer>
+    </div>
+</body>
+</html>

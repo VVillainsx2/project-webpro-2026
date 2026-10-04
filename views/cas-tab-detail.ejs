@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สรุปรายการโต๊ะอาหาร - โต๊ะ <%= tableId %></title>
+    <link rel="stylesheet" href="/css/cas-tab-detail.css">
+</head>
+<body>
+    <div class="summary-container">
+        <header class="header-bar">
+            <a href="/cashier" class="back-btn" title="ย้อนกลับ">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </a>
+            <h1 class="page-title">สรุปรายการโต๊ะอาหาร (โต๊ะ <%= tableId %>)</h1>
+            <div class="header-spacer"></div>
+        </header>
+
+        <main class="summary-content">
+            <!-- คอลัมน์ซ้าย: รายการคำสั่งซื้อ -->
+            <section class="order-section">
+                <h2 class="section-title">รายการคำสั่งซื้อ</h2>
+                <div class="order-list">
+                    <% if (typeof orders !== 'undefined' && orders.length > 0) { %>
+                        <% orders.forEach(function(item) { %>
+                            <div class="order-item">
+                                <img src="<%= item.image_url || 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=150&auto=format&fit=crop' %>" alt="<%= item.name %>" class="food-img">
+                                <div class="item-details">
+                                    <div class="item-title-row">
+                                        <span class="food-name"><%= item.name %> (<%= item.price %>.-)</span>
+                                    </div>
+                                    <div class="item-meta">
+                                        <span class="meta-label">ผู้รับผิดชอบ</span>
+                                        <div class="tags-group">
+                                            <% if (item.tags && item.tags.length > 0) { %>
+                                                <% item.tags.forEach(function(tag) { %>
+                                                    <span class="tag-badge active"><%= tag %></span>
+                                                <% }); %>
+                                                <span class="tag-sub">(เฉลี่ยคนละ <%= item.splitPricePerPerson.toFixed(2) %>.-)</span>
+                                            <% } else { %>
+                                                <span class="tag-badge">ทานร่วมกันทุกคน</span>
+                                                <span class="tag-sub">(เฉลี่ยคนละ <%= item.splitPricePerPerson.toFixed(2) %>.-)</span>
+                                            <% } %>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="item-qty">x <%= item.quantity %></div>
+                            </div>
+                        <% }); %>
+                    <% } else { %>
+                        <div style="padding: 40px; text-align: center; color: #64748b;">
+                            ยังไม่มีรายการสั่งอาหารสำหรับโต๊ะนี้
+                        </div>
+                    <% } %>
+                </div>
+            </section>
+
+            <!-- คอลัมน์ขวา: คำนวณยอดเงินและปุ่มชำระเงิน -->
+            <section class="payment-section">
+                <div class="split-calculation-box">
+                    <div class="split-title">สรุปยอดแยกทาน</div>
+                    <% if (typeof splitDetails !== 'undefined' && splitDetails.length > 0) { %>
+                        <% splitDetails.forEach(function(detail) { %>
+                            <div class="calc-line">
+                                <span><strong><%= detail.name %></strong></span> 
+                                <span><%= detail.calcString %></span>
+                            </div>
+                        <% }); %>
+                    <% } else { %>
+                        <div class="calc-line" style="justify-content: center; color: #94a3b8;">
+                            <span>ยังไม่มีข้อมูลผู้ใช้งานในโต๊ะนี้</span>
+                        </div>
+                    <% } %>
+                </div>
+
+                <div class="bill-summary">
+                    <div class="summary-row total-row">
+                        <span class="label">ยอดรวมทั้งหมด</span>
+                        <span class="value"><%= typeof totalPrice !== 'undefined' ? totalPrice.toFixed(2) : '0.00' %> บาท</span>
+                    </div>
+
+                    <!-- อัปเดตลิงก์ไปยังหน้า Payment แยกจ่ายโดยตรง -->
+                    <form action="/cashier/table/<%= tableId %>/payment" method="GET">
+                        <button type="submit" class="checkout-btn" <%= (typeof orders === 'undefined' || orders.length === 0) ? 'disabled style="opacity:0.6; cursor:not-allowed;"' : '' %>>
+                            ดำเนินการชำระเงิน <%= typeof totalPrice !== 'undefined' ? totalPrice.toFixed(2) : '0.00' %>.-
+                        </button>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- สคริปต์รีเฟรชหน้าอัตโนมัติทุกๆ 3 วินาที เพื่อดึงรายการสั่งอาหารใหม่ -->
+    <script>
+        setInterval(() => {
+            window.location.reload();
+        }, 3000);
+    </script>
+</body>
+</html>
