@@ -312,7 +312,7 @@ app.get('/cart', (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// 5. API ยืนยันออร์เดอร์ส่งเข้าครัว (pending -> cooking)
+// 5. API ยืนยันออร์เดอร์ส่งเข้าครัว (pending -> ordered)
 // -----------------------------------------------------------------------------
 app.post('/api/orders/send-to-kitchen', (req, res) => {
     const { tableNo, userId } = req.body;
@@ -325,7 +325,7 @@ app.post('/api/orders/send-to-kitchen', (req, res) => {
 
         const sqlUpdate = `
             UPDATE ORDER_ITEMS 
-            SET status = 'cooking' 
+            SET status = 'ordered', sent_at = CURRENT_TIMESTAMP
             WHERE order_id = ? 
               AND status = 'pending' 
               AND order_item_id IN (
@@ -335,7 +335,7 @@ app.post('/api/orders/send-to-kitchen', (req, res) => {
 
         db.run(sqlUpdate, [order.order_id, userId], function (err) {
             if (err) {
-                console.error('Error updating status to kitchen:', err.message);
+                console.error('Error updating status to ordered:', err.message);
                 return res.status(500).json({ success: false, message: 'เกิดข้อผิดพลาดในการส่งเข้าครัว' });
             }
 
