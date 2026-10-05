@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ครัว - งานที่รับแล้ว</title>
+    <link rel="stylesheet" href="/css/kitchen.css">
+</head>
+<body>
+    <div class="kitchen-container">
+        <%- include('partials/kitchen-nav', { pageTitle: 'ครัว - งานที่รับแล้ว', scope: 'accepted', newCount: 0, acceptedCount: (tables && tables.reduce((sum, t) => sum + t.items.length, 0)) || 0 }) %>
+
+        <main class="kitchen-main">
+            <% if (tables && tables.length > 0) { %>
+                <div class="table-grid" id="table-grid">
+                    <% tables.forEach(function(table) { %>
+                        <article class="table-card accepted" data-table-id="<%= table.table_id %>">
+                            <header class="card-header">
+                                <div class="table-info">
+                                    <h2 class="table-number">โต๊ะ <%= table.table_number %></h2>
+                                    <span class="status-badge cooking">กำลังปรุง</span>
+                                </div>
+                            </header>
+
+                            <ul class="items-list">
+                                <% table.items.forEach(function(item) { %>
+                                    <li class="item-row" data-item-id="<%= item.order_item_id %>">
+                                        <div class="item-main">
+                                            <span class="item-qty"><%= item.qty %></span>
+                                            <span class="item-name"><%= item.name %></span>
+                                        </div>
+                                        <% if (item.note && item.note.trim() !== '') { %>
+                                            <div class="item-note"><%= item.note %></div>
+                                        <% } %>
+                                    </li>
+                                <% }); %>
+                            </ul>
+
+                            <footer class="card-footer">
+                                <a href="/kitchen/table/<%= table.table_id %>" class="btn-go-table">
+                                    อัปเดตสถานะ (<%= table.items.length %>)
+                                </a>
+                            </footer>
+                        </article>
+                    <% }); %>
+                </div>
+            <% } else { %>
+                <div class="empty-state">
+                    <div class="empty-icon">✅</div>
+                    <p class="empty-text">ไม่มีงานที่รับแล้ว</p>
+                    <p class="empty-sub">กดรับรายการจากหน้าออเดอร์ใหม่</p>
+                </div>
+            <% } %>
+        </main>
+    </div>
+
+    <script src="/js/kitchen.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof KitchenApp !== 'undefined') {
+                KitchenApp.init('accepted');
+            }
+        });
+    </script>
+</body>
+</html>

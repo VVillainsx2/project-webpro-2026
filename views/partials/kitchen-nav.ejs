@@ -1,0 +1,41 @@
+<header class="kitchen-header">
+    <div class="header-left">
+        <h1 class="page-title"><%= pageTitle || 'ครัว' %></h1>
+    </div>
+    <div class="header-center">
+        <span class="staff-badge">👨‍🍳 พนักงานครัว</span>
+    </div>
+    <div class="header-right">
+        <div class="clock" id="kitchen-clock">--:--:--</div>
+    </div>
+</header>
+
+<nav class="kitchen-nav" aria-label="นำทางหน้าครัว">
+    <a href="/kitchen" class="nav-btn <%= scope === 'new' ? 'active' : '' %>" data-scope="new">
+        <span class="nav-icon">🆕</span>
+        <span class="nav-label">ออเดอร์ใหม่</span>
+        <% if (typeof newCount !== 'undefined' && newCount > 0) { %>
+            <span class="nav-count"><%= newCount %></span>
+        <% } %>
+    </a>
+    <a href="/kitchen/accepted" class="nav-btn <%= scope === 'accepted' ? 'active' : '' %>" data-scope="accepted">
+        <span class="nav-icon">✅</span>
+        <span class="nav-label">งานที่รับแล้ว</span>
+        <% if (typeof acceptedCount !== 'undefined' && acceptedCount > 0) { %>
+            <span class="nav-count"><%= acceptedCount %></span>
+        <% } %>
+    </a>
+</nav>
+
+<script>
+// Clock update (Asia/Bangkok timezone)
+function updateClock() {
+    const now = new Date();
+    const options = { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+    const thaiTime = now.toLocaleTimeString('th-TH', options);
+    const clockEl = document.getElementById('kitchen-clock');
+    if (clockEl) clockEl.textContent = thaiTime;
+}
+updateClock();
+setInterval(updateClock, 1000);
+</script>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ครัว - ออเดอร์ใหม่</title>
+    <link rel="stylesheet" href="/css/kitchen.css">
+</head>
+<body>
+    <div class="kitchen-container">
+        <%- include('partials/kitchen-nav', { pageTitle: 'ครัว - ออเดอร์ใหม่', scope: 'new', newCount: (tables && tables.reduce((sum, t) => sum + t.items.length, 0)) || 0, acceptedCount: 0 }) %>
+
+        <main class="kitchen-main">
+            <% if (tables && tables.length > 0) { %>
+                <div class="table-grid" id="table-grid">
+                    <% tables.forEach(function(table) { %>
+                        <article class="table-card <%= table.hasNew ? 'new-order' : '' %>" data-table-id="<%= table.table_id %>" data-oldest-sent-at="<%= table.oldest_sent_at %>">
+                            <header class="card-header">
+                                <div class="table-info">
+                                    <h2 class="table-number">โต๊ะ <%= table.table_number %></h2>
+                                    <time class="order-time" datetime="<%= table.oldest_sent_at ? table.oldest_sent_at.replace(' ', 'T') + 'Z' : '' %>">
+                                        <% if (table.oldest_sent_at) { %>
+                                            สั่ง: <%= new Date(table.oldest_sent_at.replace(' ', 'T') + 'Z').toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }) %>
+                                        <% } %>
+                                    </time>
+                                </div>
+                                <% if (table.hasNew) { %>
+                                    <span class="new-badge" aria-label="ออเดอร์ใหม่">ใหม่</span>
+                                <% } %>
+                            </header>
+
+                            <ul class="items-list">
+                                <% table.items.forEach(function(item) { %>
+                                    <li class="item-row" data-item-id="<%= item.order_item_id %>">
+                                        <div class="item-main">
+                                            <span class="item-qty"><%= item.qty %></span>
+                                            <span class="item-name"><%= item.name %></span>
+                                        </div>
+                                        <% if (item.note && item.note.trim() !== '') { %>
+                                            <div class="item-note"><%= item.note %></div>
+                                        <% } %>
+                                    </li>
+                                <% }); %>
+                            </ul>
+
+                            <footer class="card-footer">
+                                <button type="button" class="btn-accept" data-table-id="<%= table.table_id %>" data-item-ids='<%= JSON.stringify(table.items.map(i => i.order_item_id)) %>'>
+                                    รับรายการอาหาร (<%= table.items.length %>)
+                                </button>
+                            </footer>
+                        </article>
+                    <% }); %>
+                </div>
+            <% } else { %>
+                <div class="empty-state">
+                    <div class="empty-icon">🍳</div>
+                    <p class="empty-text">ไม่มีออเดอร์ใหม่</p>
+                    <p class="empty-sub">รอลูกค้าส่งออเดอร์เข้าครัว</p>
+                </div>
+            <% } %>
+        </main>
+    </div>
+
+    <script src="/js/kitchen.js"></script>
+    <script>
+        // Initialize kitchen page for 'new' scope
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof KitchenApp !== 'undefined') {
+                KitchenApp.init('new');
+            }
+        });
+    </script>
+</body>
+</html>

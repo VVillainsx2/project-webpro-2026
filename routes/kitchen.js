@@ -229,15 +229,29 @@ module.exports = function kitchenRoutes(db) {
     // Helper function for rendering views (reuse query logic)
     // ============================================================
     function renderKitchenView(req, res, scope, viewName) {
-        getKitchenOrders(scope, (err, result) => {
+        // Fetch both scopes to get counts for nav badges
+        getKitchenOrders('new', (err, newResult) => {
             if (err) {
-                console.error('[Kitchen View] Error:', err.message);
+                console.error('[Kitchen View] Error fetching new:', err.message);
                 return res.status(500).send('โหลดข้อมูลไม่สำเร็จ');
             }
-            res.render(viewName, { 
-                tables: result.tables || [],
-                scope,
-                STATUS
+            getKitchenOrders('accepted', (err, acceptedResult) => {
+                if (err) {
+                    console.error('[Kitchen View] Error fetching accepted:', err.message);
+                    return res.status(500).send('โหลดข้อมูลไม่สำเร็จ');
+                }
+
+                const tables = (scope === 'new') ? (newResult.tables || []) : (acceptedResult.tables || []);
+                const newCount = (newResult.tables || []).reduce((sum, t) => sum + t.items.length, 0);
+                const acceptedCount = (acceptedResult.tables || []).reduce((sum, t) => sum + t.items.length, 0);
+
+                res.render(viewName, { 
+                    tables,
+                    scope,
+                    STATUS,
+                    newCount,
+                    acceptedCount
+                });
             });
         });
     }

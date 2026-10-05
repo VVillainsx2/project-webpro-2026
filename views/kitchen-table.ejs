@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ครัว - โต๊ะ <%= table.table_number %></title>
+    <link rel="stylesheet" href="/css/kitchen.css">
+</head>
+<body>
+    <div class="kitchen-container">
+        <%- include('partials/kitchen-nav', { pageTitle: 'ครัว - โต๊ะ ' + table.table_number, scope: 'accepted', newCount: 0, acceptedCount: (cookingItems.length + readyItems.length) }) %>
+
+        <main class="kitchen-main table-main">
+            <!-- Cooking items -->
+            <section class="status-section cooking-section">
+                <header class="section-header">
+                    <h2 class="section-title">🍳 กำลังปรุง (<%= cookingItems.length %>)</h2>
+                </header>
+                <% if (cookingItems && cookingItems.length > 0) { %>
+                    <ul class="items-list table-items">
+                        <% cookingItems.forEach(function(item) { %>
+                            <li class="item-row cooking" data-item-id="<%= item.order_item_id %>">
+                                <div class="item-main">
+                                    <span class="item-qty"><%= item.qty %></span>
+                                    <span class="item-name"><%= item.name %></span>
+                                </div>
+                                <% if (item.note && item.note.trim() !== '') { %>
+                                    <div class="item-note"><%= item.note %></div>
+                                <% } %>
+                                <div class="item-actions">
+                                    <button type="button" class="btn-status btn-ready" data-item-id="<%= item.order_item_id %>" data-status="ready">
+                                        ปรุงเสร็จ
+                                    </button>
+                                </div>
+                            </li>
+                        <% }); %>
+                    </ul>
+                <% } else { %>
+                    <div class="empty-section">ไม่มีรายการกำลังปรุง</div>
+                <% } %>
+            </section>
+
+            <!-- Ready items -->
+            <section class="status-section ready-section">
+                <header class="section-header">
+                    <h2 class="section-title">✅ พร้อมเสิร์ฟ (<%= readyItems.length %>)</h2>
+                </header>
+                <% if (readyItems && readyItems.length > 0) { %>
+                    <ul class="items-list table-items">
+                        <% readyItems.forEach(function(item) { %>
+                            <li class="item-row ready" data-item-id="<%= item.order_item_id %>">
+                                <div class="item-main">
+                                    <span class="item-qty"><%= item.qty %></span>
+                                    <span class="item-name"><%= item.name %></span>
+                                </div>
+                                <% if (item.note && item.note.trim() !== '') { %>
+                                    <div class="item-note"><%= item.note %></div>
+                                <% } %>
+                                <div class="item-actions">
+                                    <button type="button" class="btn-status btn-cooking" data-item-id="<%= item.order_item_id %>" data-status="cooking">
+                                        ย้อนกลับ (ปรุงต่อ)
+                                    </button>
+                                </div>
+                            </li>
+                        <% }); %>
+                    </ul>
+                <% } else { %>
+                    <div class="empty-section">ไม่มีรายการพร้อมเสิร์ฟ</div>
+                <% } %>
+            </section>
+        </main>
+    </div>
+
+    <script src="/js/kitchen.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof KitchenApp !== 'undefined') {
+                KitchenApp.initTablePage();
+            }
+        });
+    </script>
+</body>
+</html>
