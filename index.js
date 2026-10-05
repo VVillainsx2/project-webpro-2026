@@ -29,6 +29,15 @@ const db = new sqlite3.Database('./database.db', (err) => {
     }
 });
 
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[Unhandled Rejection]:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('[Uncaught Exception]:', err);
+});
+
 // Settings
 const PROMPTPAY_NO = '0812345678'; // หมายเลข PromptPay ร้านค้า
 
@@ -777,9 +786,14 @@ app.post('/cashier/table/:table_id/finish-payment', (req, res) => {
         db.run(updateTablesSql, [tableId, tableId], (err) => {
             if (err) console.error('[Finish Payment Error] TABLES:', err);
             res.redirect('/cashier');
-        });
+});
     });
 });
+
+// -----------------------------------------------------------------------------
+// Kitchen routes (mount after DB and middleware)
+// -----------------------------------------------------------------------------
+app.use(require('./routes/kitchen')(db));
 
 // -----------------------------------------------------------------------------
 // Start Server
