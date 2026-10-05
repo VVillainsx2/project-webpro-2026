@@ -22,6 +22,10 @@ const db = new sqlite3.Database('./database.db', (err) => {
         console.log('Connected to SQLite database.');
         // เปิดใช้งาน Foreign Keys Constraint ใน SQLite
         db.run('PRAGMA foreign_keys = ON;');
+        // Kitchen migration (รันตอนสตาร์ต อัตโนมัติ รันซ้ำได้ปลอดภัย)
+        require('./lib/migrate-kitchen').runKitchenMigration(db).catch(err => {
+            console.error('[Kitchen Migration] Failed:', err.message);
+        });
     }
 });
 
