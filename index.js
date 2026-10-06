@@ -795,9 +795,17 @@ app.post('/cashier/table/:table_id/finish-payment', (req, res) => {
 // -----------------------------------------------------------------------------
 app.use(require('./routes/kitchen')(db));
 
+// Test route
+app.get('/test-kitchen', (req, res) => {
+    res.json({ message: 'Kitchen test route works' });
+});
+
 // -----------------------------------------------------------------------------
 // Start Server
 // -----------------------------------------------------------------------------
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running at http://localhost:${PORT}`);
 });
+
+// Keep process alive (prevents exit in some environments)
+setInterval(() => {}, 1000);
