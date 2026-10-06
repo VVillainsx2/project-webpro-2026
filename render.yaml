@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: project-webpro-2026
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci
+    startCommand: node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_PATH
+        value: /var/data/database.db
+    disk:
+      name: sqlite-data
+      mountPath: /var/data
+      sizeGB: 1
+    healthCheckPath: /
+    autoDeploy: true

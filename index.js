@@ -15,17 +15,26 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Database connection
-const db = new sqlite3.Database('./database.db', (err) => {
+// ใช้ environment variable สำหรับ database path (Render Disk: /var/data/database.db)
+const DB_PATH = process.env.DB_PATH || './database.db';
+const db = new sqlite3.Database(DB_PATH, (err) => {
     if (err) {
         console.error('DB Error:', err.message);
     } else {
-        console.log('Connected to SQLite database.');
+        console.log('Connected to SQLite database at:', DB_PATH);
         // เปิดใช้งาน Foreign Keys Constraint ใน SQLite
         db.run('PRAGMA foreign_keys = ON;');
-        // Kitchen migration (รันตอนสตาร์ต อัตโนมัติ รันซ้ำได้ปลอดภัย)
-        require('./lib/migrate-kitchen').runKitchenMigration(db).catch(err => {
-            console.error('[Kitchen Migration] Failed:', err.message);
-        });
+        
+        // Initialize database schema and seed data if empty
+        require('./lib/init-database').initializeDatabase(db)
+            .then(() => {
+                console.log('[DB Init] Database initialization complete');
+                // Kitchen migration (รันตอนสตาร์ต อัตโนมัติ รันซ้ำได้ปลอดภัย)
+                return require('./lib/migrate-kitchen').runKitchenMigration(db);
+            })
+            .catch(err => {
+                console.error('[DB Init/Migration] Failed:', err.message);
+            });
     }
 });
 
