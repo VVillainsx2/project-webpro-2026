@@ -16,25 +16,6 @@
         .kitchen-container { max-width: 1200px; margin: 0 auto; }
         .kitchen-header { text-align: center; margin-bottom: 16px; }
         .kitchen-header h1 { margin: 0 0 12px 0; font-size: 1.8rem; }
-        .tab-bar { display: flex; gap: 12px; justify-content: center; margin-bottom: 20px; }
-        .tab-bar a {
-            flex: 1;
-            max-width: 320px;
-            text-align: center;
-            padding: 14px 10px;
-            min-height: 48px;
-            background-color: #ffffff;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            text-decoration: none;
-            color: #334155;
-            font-size: 1.1rem;
-            font-weight: bold;
-        }
-        .tab-bar a.active {
-            border-color: #16a34a;
-            background-color: #dcfce7;
-        }
         .card-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -61,6 +42,17 @@
         .table-name { font-size: 1.4rem; font-weight: bold; color: #334155; }
         .order-time { font-size: 0.95rem; color: #64748b; }
         .dish { padding: 6px 0; font-size: 1.15rem; }
+        .dish-row-line { display: flex; justify-content: space-between; gap: 8px; }
+        .bill-total {
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #e2e8f0;
+            margin-top: 8px;
+            padding-top: 8px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #334155;
+        }
         .dish-note {
             display: block;
             color: #dc2626;
@@ -145,11 +137,6 @@
         <h1>ครัว - รายการอาหาร</h1>
     </header>
 
-    <nav class="tab-bar">
-        <a href="/kitchen?tab=new" class="<%= tab === 'new' ? 'active' : '' %>">ออเดอร์ใหม่ (<%= counts.new %>)</a>
-        <a href="/kitchen?tab=accepted" class="<%= tab === 'accepted' ? 'active' : '' %>">งานที่รับแล้ว (<%= counts.accepted %>)</a>
-    </nav>
-
     <div id="offline" hidden>ขาดการเชื่อมต่อ กำลังลองใหม่...</div>
     <main id="content">
         <% if (msg === 'taken') { %>
@@ -159,39 +146,39 @@
         <% } else if (msg === 'changed') { %>
             <div class="alert">สถานะรายการเปลี่ยนไปแล้ว</div>
         <% } %>
-        <% if (tables && tables.length > 0) { %>
+        <% if (bills && bills.length > 0) { %>
             <div class="card-grid">
-                <% tables.forEach(function(t) { %>
+                <% bills.forEach(function(b) { %>
                     <section class="order-card">
                         <div class="card-head">
-                            <span class="table-name">โต๊ะ <%= t.table_number %><% if (t.hasNew) { %><span class="badge-new">ใหม่</span><% } %></span>
-                            <span class="order-time"><%= t.firstTimeTh %> น. <span class="wait<%= t.maxWait > 10 ? ' wait-over' : '' %>">(รอ <%= t.maxWait %> นาที)</span></span>
+                            <span class="table-name">โต๊ะ <%= b.table_number %><% if (b.hasNew) { %><span class="badge-new">ใหม่</span><% } %></span>
+                            <span class="order-time">#<%= b.order_id %> · <%= b.firstTimeTh %> น. <span class="wait<%= b.maxWait > 10 ? ' wait-over' : '' %>">(รอ <%= b.maxWait %> นาที)</span></span>
                         </div>
-                        <% t.items.forEach(function(item) { %>
+                        <% b.items.forEach(function(item) { %>
                             <div class="dish">
-                                <span><%= item.qty %>× <%= item.name %></span>
+                                <div class="dish-row-line">
+                                    <span><%= item.qty %>× <%= item.name %></span>
+                                    <span><%= item.lineTotal.toLocaleString() %></span>
+                                </div>
                                 <% if (item.note) { %>
                                     <span class="dish-note">หมายเหตุ: <%= item.note %></span>
                                 <% } %>
                             </div>
                         <% }); %>
-                        <% if (tab === 'new') { %>
+                        <div class="bill-total"><span>รวม</span><span>฿<%= b.total.toLocaleString() %></span></div>
+                        <% if (b.action === 'accept') { %>
                             <form method="POST" action="/kitchen/accept" onsubmit="var b=this.querySelector('[type=submit]');if(b)b.disabled=true;">
-                                <input type="hidden" name="ids" value="<%= t.ids %>">
+                                <input type="hidden" name="ids" value="<%= b.ids %>">
                                 <button type="submit" class="btn-accept">รับรายการอาหาร</button>
                             </form>
                         <% } else { %>
-                            <a class="btn-link" href="/kitchen/table/<%= t.table_id %>">อัปเดตสถานะ</a>
+                            <a class="btn-link" href="/kitchen/table/<%= b.table_id %>">อัพเดทสถานะ</a>
                         <% } %>
                     </section>
                 <% }); %>
             </div>
         <% } else { %>
-            <% if (tab === 'new') { %>
-                <div class="empty-state">ไม่มีออเดอร์ใหม่</div>
-            <% } else { %>
-                <div class="empty-state">ไม่มีงานที่รับแล้ว</div>
-            <% } %>
+            <div class="empty-state">ไม่มีออเดอร์ใหม่</div>
         <% } %>
     </main>
 </div>

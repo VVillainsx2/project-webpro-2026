@@ -824,15 +824,14 @@ function migrateKitchen() {
 
 migrateKitchen();
 
-// 8.1 หน้าครัว (แท็บออเดอร์ใหม่ / งานที่รับแล้ว)
+// 8.1 หน้าครัว (หน้าเดียว: ออเดอร์ใหม่มีปุ่มรับ งานที่รับแล้วมีปุ่มอัพเดท)
 app.get('/kitchen', (req, res) => {
-    const tab = req.query.tab === 'accepted' ? 'accepted' : 'new';
     const rawMsg = String(req.query.msg || '');
     const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
 
     const sql = `
-        SELECT t.table_id, t.table_number, oi.order_item_id, oi.qty, oi.note, oi.status,
-               COALESCE(oi.sent_at, o.created_at) AS sent_at, mi.name
+        SELECT t.table_id, t.table_number, o.order_id, oi.order_item_id, oi.qty, oi.note, oi.status,
+               COALESCE(oi.sent_at, o.created_at) AS sent_at, mi.name, mi.price
         FROM ORDER_ITEMS oi
         JOIN ORDERS o     ON o.order_id = oi.order_id
         JOIN SESSIONS s   ON s.session_id = o.session_id
@@ -849,57 +848,50 @@ app.get('/kitchen', (req, res) => {
         }
 
         const now = Date.now();
-        const groups = {};
+        // จัดกลุ่มเป็นบิล: โต๊ะ + เลขออเดอร์ + รอบเวลาที่กดส่ง + สถานะ (1 โต๊ะมีได้หลายบิล)
+        const billGroups = {};
         (rows || []).forEach((r) => {
             const sentMs = r.sent_at ? new Date(String(r.sent_at).replace(' ', 'T') + 'Z').getTime() : NaN;
+            const lineTotal = (Number(r.price) || 0) * (Number(r.qty) || 0);
             const item = {
                 order_item_id: r.order_item_id,
                 qty: r.qty,
                 note: r.note,
                 status: r.status,
                 name: r.name,
+                price: Number(r.price) || 0,
+                lineTotal: lineTotal,
                 sentMs: sentMs,
                 timeTh: isNaN(sentMs) ? '-' : new Date(sentMs).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }),
                 isNew: !isNaN(sentMs) && (now - sentMs) >= 0 && (now - sentMs) <= 60000,
                 waitMin: isNaN(sentMs) ? 0 : Math.max(0, Math.floor((now - sentMs) / 60000))
             };
-            const key = String(r.table_id);
-            if (!groups[key]) {
-                groups[key] = { table_id: r.table_id, table_number: r.table_number, items: [] };
+            const key = [r.table_id, r.order_id, String(r.sent_at), r.status].join('|');
+            if (!billGroups[key]) {
+                billGroups[key] = { table_id: r.table_id, table_number: r.table_number, order_id: r.order_id, status: r.status, items: [] };
             }
-            groups[key].items.push(item);
+            billGroups[key].items.push(item);
         });
 
-        const pickByStatus = (want) => {
-            const list = [];
-            Object.values(groups).forEach((g) => {
-                const items = g.items.filter((i) => i.status === want);
-                if (items.length === 0) return;
-                const first = items.reduce((a, b) => (isNaN(a.sentMs) ? b : (isNaN(b.sentMs) ? a : (a.sentMs <= b.sentMs ? a : b))));
-                list.push({
-                    table_id: g.table_id,
-                    table_number: g.table_number,
-                    items: items,
-                    ids: items.map((i) => i.order_item_id).join(','),
-                    firstTimeTh: isNaN(first.sentMs) ? '-' : first.timeTh,
-                    hasNew: items.some((i) => i.isNew),
-                    maxWait: items.reduce((a, i) => Math.max(a, i.waitMin), 0),
-                    firstSentMs: isNaN(first.sentMs) ? Number.MAX_SAFE_INTEGER : first.sentMs
-                });
-            });
-            list.sort((a, b) => a.firstSentMs - b.firstSentMs);
-            return list;
-        };
-
-        const newTables = pickByStatus(ST.ORDERED);
-        const acceptedTables = pickByStatus(ST.COOKING);
-
-        res.render('kitchen', {
-            tables: tab === 'accepted' ? acceptedTables : newTables,
-            tab: tab,
-            msg: msg,
-            counts: { new: newTables.length, accepted: acceptedTables.length }
+        const bills = Object.values(billGroups).map((g) => {
+            const first = g.items.reduce((a, b) => (isNaN(a.sentMs) ? b : (isNaN(b.sentMs) ? a : (a.sentMs <= b.sentMs ? a : b))));
+            return {
+                table_id: g.table_id,
+                table_number: g.table_number,
+                order_id: g.order_id,
+                action: g.status === ST.ORDERED ? 'accept' : 'update',
+                items: g.items,
+                ids: g.items.map((i) => i.order_item_id).join(','),
+                firstTimeTh: isNaN(first.sentMs) ? '-' : first.timeTh,
+                hasNew: g.items.some((i) => i.isNew),
+                maxWait: g.items.reduce((a, i) => Math.max(a, i.waitMin), 0),
+                total: g.items.reduce((a, i) => a + i.lineTotal, 0),
+                firstSentMs: isNaN(first.sentMs) ? Number.MAX_SAFE_INTEGER : first.sentMs
+            };
         });
+        bills.sort((a, b) => a.firstSentMs - b.firstSentMs);
+
+        res.render('kitchen', { bills: bills, msg: msg });
     });
 });
 
@@ -928,7 +920,7 @@ app.post('/kitchen/accept', (req, res) => {
             if (this.changes === 0) {
                 return res.redirect('/kitchen?msg=taken');
             }
-            res.redirect('/kitchen?tab=accepted');
+            res.redirect('/kitchen');
         });
     });
 });
@@ -995,7 +987,7 @@ app.post('/kitchen/item/:id/status', (req, res) => {
     const itemId = Number(req.params.id);
     const to = String(req.body.to || '');
     const tableId = String(req.body.table_id || '');
-    const backTo = /^[0-9]+$/.test(tableId) ? '/kitchen/table/' + tableId : '/kitchen?tab=accepted';
+    const backTo = /^[0-9]+$/.test(tableId) ? '/kitchen/table/' + tableId : '/kitchen';
     const backWithMsg = (key) => backTo + (backTo.includes('?') ? '&' : '?') + 'msg=' + key;
 
     if (!Number.isInteger(itemId) || itemId <= 0 || !Object.prototype.hasOwnProperty.call(KITCHEN_STEP, to)) {
