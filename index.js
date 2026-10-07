@@ -895,7 +895,7 @@ app.get('/kitchen', (req, res) => {
             return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลออเดอร์ครัว');
         }
 
-        res.render('kitchen', { bills: buildBills(rows, Date.now()), msg: msg, mode: 'kitchen', title: 'ครัว - รายการอาหาร' });
+        res.render('kitchen', { bills: buildBills(rows, Date.now()).reverse(), msg: msg, mode: 'kitchen', title: 'ครัว - รายการอาหาร' });
     });
 });
 
@@ -953,7 +953,7 @@ app.get('/kitchen/table/:table_id', (req, res) => {
             WHERE oi.status IN ('cooking', 'ready')
               AND LOWER(TRIM(s.status)) = 'active'
               AND CAST(t.table_id AS TEXT) = CAST(? AS TEXT)
-            ORDER BY sent_at ASC, oi.order_item_id ASC
+            ORDER BY sent_at DESC, oi.order_item_id DESC
         `;
 
         db.all(sql, [tableId], (err, rows) => {
