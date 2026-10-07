@@ -29,6 +29,17 @@
             font-size: 1.1rem;
             font-weight: bold;
         }
+        .alert {
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #991b1b;
+            background-color: #fee2e2;
+            border: 2px solid #ef4444;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
         .section-title { font-size: 1.3rem; font-weight: bold; margin: 20px 0 12px 0; }
         .dish-card {
             background-color: #ffffff;
@@ -106,6 +117,11 @@
     </header>
 
     <main id="content">
+        <% if (msg === 'invalid') { %>
+            <div class="alert">ข้อมูลไม่ถูกต้อง</div>
+        <% } else if (msg === 'changed') { %>
+            <div class="alert">สถานะรายการเปลี่ยนไปแล้ว</div>
+        <% } %>
         <div class="section-title">กำลังปรุง (<%= cooking.length %>)</div>
         <% if (cooking && cooking.length > 0) { %>
             <% cooking.forEach(function(item) { %>

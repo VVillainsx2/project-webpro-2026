@@ -989,6 +989,39 @@ app.get('/kitchen/table/:table_id', (req, res) => {
     });
 });
 
+// 8.4 ครัวเปลี่ยนสถานะรายจาน (cooking <-> ready ห้ามข้ามขั้น)
+app.post('/kitchen/item/:id/status', (req, res) => {
+    const itemId = Number(req.params.id);
+    const to = String(req.body.to || '');
+    const tableId = String(req.body.table_id || '');
+    const backTo = /^[0-9]+$/.test(tableId) ? '/kitchen/table/' + tableId : '/kitchen?tab=accepted';
+    const backWithMsg = (key) => backTo + (backTo.includes('?') ? '&' : '?') + 'msg=' + key;
+
+    if (!Number.isInteger(itemId) || itemId <= 0 || !Object.prototype.hasOwnProperty.call(KITCHEN_STEP, to)) {
+        return res.redirect(backWithMsg('invalid'));
+    }
+    const from = KITCHEN_STEP[to];
+
+    db.get("SELECT employee_id FROM EMPLOYEES WHERE role = 'kitchen' LIMIT 1", [], (err, emp) => {
+        if (err || !emp) {
+            console.error('Error finding kitchen employee:', err ? err.message : 'not found');
+            return res.status(500).send('เกิดข้อผิดพลาดในการอัปเดตสถานะอาหาร');
+        }
+
+        db.run('UPDATE ORDER_ITEMS SET status = ?, updated_by_employee_id = ? WHERE order_item_id = ? AND status = ?',
+            [to, emp.employee_id, itemId, from], function (err) {
+                if (err) {
+                    console.error('Error updating kitchen item status:', err.message);
+                    return res.status(500).send('เกิดข้อผิดพลาดในการอัปเดตสถานะอาหาร');
+                }
+                if (this.changes === 0) {
+                    return res.redirect(backWithMsg('changed'));
+                }
+                res.redirect(backTo);
+            });
+    });
+});
+
 // -----------------------------------------------------------------------------
 // Start Server
 // -----------------------------------------------------------------------------
