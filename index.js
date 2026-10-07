@@ -308,7 +308,7 @@ app.get('/cart', (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// 5. API ยืนยันออร์เดอร์ส่งเข้าครัว (pending -> cooking)
+// 5. API ยืนยันออร์เดอร์ส่งเข้าครัว (pending -> ordered)
 // -----------------------------------------------------------------------------
 app.post('/api/orders/send-to-kitchen', (req, res) => {
     const { tableNo, userId } = req.body;
@@ -321,7 +321,7 @@ app.post('/api/orders/send-to-kitchen', (req, res) => {
 
         const sqlUpdate = `
             UPDATE ORDER_ITEMS 
-            SET status = 'cooking' 
+            SET status = 'ordered', sent_at = CURRENT_TIMESTAMP 
             WHERE order_id = ? 
               AND status = 'pending' 
               AND order_item_id IN (
@@ -774,6 +774,252 @@ app.post('/cashier/table/:table_id/finish-payment', (req, res) => {
             if (err) console.error('[Finish Payment Error] TABLES:', err);
             res.redirect('/cashier');
         });
+    });
+});
+
+// -----------------------------------------------------------------------------
+// 8. ส่วนงานครัว (Kitchen)
+// -----------------------------------------------------------------------------
+const ST = { PENDING: 'pending', ORDERED: 'ordered', COOKING: 'cooking', READY: 'ready', SERVED: 'served' };
+// ครัวเปลี่ยนสถานะรายจานได้แค่ 2 แบบ: key = สถานะปลายทาง, value = สถานะที่ต้องเป็นอยู่ก่อน
+const KITCHEN_STEP = { ready: 'cooking', cooking: 'ready' };
+// ข้อความแจ้งเตือนที่อนุญาตให้แสดงผ่าน query msg (กันการพิมพ์ค่าดิบจากผู้ใช้)
+const KITCHEN_MSG = ['taken', 'invalid', 'changed'];
+
+// Migration ฝั่งครัว (รันซ้ำได้): เพิ่มคอลัมน์ sent_at + seed พนักงานครัว 1 แถว
+function migrateKitchen() {
+    db.all('PRAGMA table_info(ORDER_ITEMS)', [], (err, cols) => {
+        if (err) {
+            console.error('Kitchen migration ตรวจสอบคอลัมน์ไม่สำเร็จ:', err.message);
+            return;
+        }
+        const hasSentAt = (cols || []).some((c) => c.name === 'sent_at');
+        if (!hasSentAt) {
+            db.run('ALTER TABLE ORDER_ITEMS ADD COLUMN sent_at DATETIME', (err) => {
+                if (err) {
+                    console.error('Kitchen migration เพิ่มคอลัมน์ sent_at ไม่สำเร็จ:', err.message);
+                } else {
+                    console.log('Kitchen migration เพิ่มคอลัมน์ sent_at แล้ว');
+                }
+            });
+        }
+    });
+
+    db.get("SELECT employee_id FROM EMPLOYEES WHERE role = 'kitchen' LIMIT 1", [], (err, row) => {
+        if (err) {
+            console.error('Kitchen migration ตรวจสอบพนักงานครัวไม่สำเร็จ:', err.message);
+            return;
+        }
+        if (!row) {
+            db.run("INSERT INTO EMPLOYEES (name, role) VALUES ('พนักงานครัว', 'kitchen')", (err) => {
+                if (err) {
+                    console.error('Kitchen migration เพิ่มพนักงานครัวไม่สำเร็จ:', err.message);
+                } else {
+                    console.log('Kitchen migration เพิ่มพนักงานครัวแล้ว');
+                }
+            });
+        }
+    });
+}
+
+migrateKitchen();
+
+// 8.1 หน้าครัว (แท็บออเดอร์ใหม่ / งานที่รับแล้ว)
+app.get('/kitchen', (req, res) => {
+    const tab = req.query.tab === 'accepted' ? 'accepted' : 'new';
+    const rawMsg = String(req.query.msg || '');
+    const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
+
+    const sql = `
+        SELECT t.table_id, t.table_number, oi.order_item_id, oi.qty, oi.note, oi.status,
+               COALESCE(oi.sent_at, o.created_at) AS sent_at, mi.name
+        FROM ORDER_ITEMS oi
+        JOIN ORDERS o     ON o.order_id = oi.order_id
+        JOIN SESSIONS s   ON s.session_id = o.session_id
+        JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
+        JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+        WHERE oi.status IN ('ordered', 'cooking') AND LOWER(TRIM(s.status)) = 'active'
+        ORDER BY sent_at ASC, oi.order_item_id ASC
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err) {
+            console.error('Error fetching kitchen orders:', err.message);
+            return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลออเดอร์ครัว');
+        }
+
+        const now = Date.now();
+        const groups = {};
+        (rows || []).forEach((r) => {
+            const sentMs = r.sent_at ? new Date(String(r.sent_at).replace(' ', 'T') + 'Z').getTime() : NaN;
+            const item = {
+                order_item_id: r.order_item_id,
+                qty: r.qty,
+                note: r.note,
+                status: r.status,
+                name: r.name,
+                sentMs: sentMs,
+                timeTh: isNaN(sentMs) ? '-' : new Date(sentMs).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }),
+                isNew: !isNaN(sentMs) && (now - sentMs) >= 0 && (now - sentMs) <= 60000,
+                waitMin: isNaN(sentMs) ? 0 : Math.max(0, Math.floor((now - sentMs) / 60000))
+            };
+            const key = String(r.table_id);
+            if (!groups[key]) {
+                groups[key] = { table_id: r.table_id, table_number: r.table_number, items: [] };
+            }
+            groups[key].items.push(item);
+        });
+
+        const pickByStatus = (want) => {
+            const list = [];
+            Object.values(groups).forEach((g) => {
+                const items = g.items.filter((i) => i.status === want);
+                if (items.length === 0) return;
+                const first = items.reduce((a, b) => (isNaN(a.sentMs) ? b : (isNaN(b.sentMs) ? a : (a.sentMs <= b.sentMs ? a : b))));
+                list.push({
+                    table_id: g.table_id,
+                    table_number: g.table_number,
+                    items: items,
+                    ids: items.map((i) => i.order_item_id).join(','),
+                    firstTimeTh: isNaN(first.sentMs) ? '-' : first.timeTh,
+                    hasNew: items.some((i) => i.isNew),
+                    maxWait: items.reduce((a, i) => Math.max(a, i.waitMin), 0),
+                    firstSentMs: isNaN(first.sentMs) ? Number.MAX_SAFE_INTEGER : first.sentMs
+                });
+            });
+            list.sort((a, b) => a.firstSentMs - b.firstSentMs);
+            return list;
+        };
+
+        const newTables = pickByStatus(ST.ORDERED);
+        const acceptedTables = pickByStatus(ST.COOKING);
+
+        res.render('kitchen', {
+            tables: tab === 'accepted' ? acceptedTables : newTables,
+            tab: tab,
+            msg: msg,
+            counts: { new: newTables.length, accepted: acceptedTables.length }
+        });
+    });
+});
+
+// 8.2 ครัวรับงาน (ordered -> cooking กันรับซ้ำแบบ atomic)
+app.post('/kitchen/accept', (req, res) => {
+    const idList = String(req.body.ids || '').split(',').map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 100);
+    if (idList.length === 0) {
+        return res.redirect('/kitchen?msg=invalid');
+    }
+
+    db.get("SELECT employee_id FROM EMPLOYEES WHERE role = 'kitchen' LIMIT 1", [], (err, emp) => {
+        if (err || !emp) {
+            console.error('Error finding kitchen employee:', err ? err.message : 'not found');
+            return res.status(500).send('เกิดข้อผิดพลาดในการรับรายการอาหาร');
+        }
+
+        const marks = idList.map(() => '?').join(',');
+        const sqlUpdate = `UPDATE ORDER_ITEMS SET status = 'cooking', updated_by_employee_id = ?
+            WHERE order_item_id IN (${marks}) AND status = 'ordered'`;
+
+        db.run(sqlUpdate, [emp.employee_id, ...idList], function (err) {
+            if (err) {
+                console.error('Error accepting kitchen order:', err.message);
+                return res.status(500).send('เกิดข้อผิดพลาดในการรับรายการอาหาร');
+            }
+            if (this.changes === 0) {
+                return res.redirect('/kitchen?msg=taken');
+            }
+            res.redirect('/kitchen?tab=accepted');
+        });
+    });
+});
+
+// 8.3 หน้าอัปเดตสถานะรายโต๊ะ (cooking / ready ของ session ที่ active)
+app.get('/kitchen/table/:table_id', (req, res) => {
+    const tableId = req.params.table_id;
+    const rawMsg = String(req.query.msg || '');
+    const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
+
+    db.get('SELECT table_id, table_number FROM TABLES WHERE CAST(table_id AS TEXT) = CAST(? AS TEXT)', [tableId], (err, table) => {
+        if (err) {
+            console.error('Error fetching kitchen table:', err.message);
+            return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลโต๊ะครัว');
+        }
+        const tableInfo = table || { table_id: tableId, table_number: tableId };
+
+        const sql = `
+            SELECT oi.order_item_id, oi.qty, oi.note, oi.status,
+                   COALESCE(oi.sent_at, o.created_at) AS sent_at, mi.name
+            FROM ORDER_ITEMS oi
+            JOIN ORDERS o     ON o.order_id = oi.order_id
+            JOIN SESSIONS s   ON s.session_id = o.session_id
+            JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
+            JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+            WHERE oi.status IN ('cooking', 'ready')
+              AND LOWER(TRIM(s.status)) = 'active'
+              AND CAST(t.table_id AS TEXT) = CAST(? AS TEXT)
+            ORDER BY sent_at ASC, oi.order_item_id ASC
+        `;
+
+        db.all(sql, [tableId], (err, rows) => {
+            if (err) {
+                console.error('Error fetching kitchen table items:', err.message);
+                return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลรายการของโต๊ะ');
+            }
+
+            const now = Date.now();
+            const cooking = [];
+            const ready = [];
+            (rows || []).forEach((r) => {
+                const sentMs = r.sent_at ? new Date(String(r.sent_at).replace(' ', 'T') + 'Z').getTime() : NaN;
+                const item = {
+                    order_item_id: r.order_item_id,
+                    qty: r.qty,
+                    note: r.note,
+                    name: r.name,
+                    sentMs: sentMs,
+                    timeTh: isNaN(sentMs) ? '-' : new Date(sentMs).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }),
+                    isNew: !isNaN(sentMs) && (now - sentMs) >= 0 && (now - sentMs) <= 60000,
+                    waitMin: isNaN(sentMs) ? 0 : Math.max(0, Math.floor((now - sentMs) / 60000))
+                };
+                if (r.status === ST.COOKING) cooking.push(item);
+                else ready.push(item);
+            });
+
+            res.render('kitchen-detail', { table: tableInfo, cooking: cooking, ready: ready, msg: msg });
+        });
+    });
+});
+
+// 8.4 ครัวเปลี่ยนสถานะรายจาน (cooking <-> ready ห้ามข้ามขั้น)
+app.post('/kitchen/item/:id/status', (req, res) => {
+    const itemId = Number(req.params.id);
+    const to = String(req.body.to || '');
+    const tableId = String(req.body.table_id || '');
+    const backTo = /^[0-9]+$/.test(tableId) ? '/kitchen/table/' + tableId : '/kitchen?tab=accepted';
+    const backWithMsg = (key) => backTo + (backTo.includes('?') ? '&' : '?') + 'msg=' + key;
+
+    if (!Number.isInteger(itemId) || itemId <= 0 || !Object.prototype.hasOwnProperty.call(KITCHEN_STEP, to)) {
+        return res.redirect(backWithMsg('invalid'));
+    }
+    const from = KITCHEN_STEP[to];
+
+    db.get("SELECT employee_id FROM EMPLOYEES WHERE role = 'kitchen' LIMIT 1", [], (err, emp) => {
+        if (err || !emp) {
+            console.error('Error finding kitchen employee:', err ? err.message : 'not found');
+            return res.status(500).send('เกิดข้อผิดพลาดในการอัปเดตสถานะอาหาร');
+        }
+
+        db.run('UPDATE ORDER_ITEMS SET status = ?, updated_by_employee_id = ? WHERE order_item_id = ? AND status = ?',
+            [to, emp.employee_id, itemId, from], function (err) {
+                if (err) {
+                    console.error('Error updating kitchen item status:', err.message);
+                    return res.status(500).send('เกิดข้อผิดพลาดในการอัปเดตสถานะอาหาร');
+                }
+                if (this.changes === 0) {
+                    return res.redirect(backWithMsg('changed'));
+                }
+                res.redirect(backTo);
+            });
     });
 });
 
