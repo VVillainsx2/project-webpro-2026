@@ -902,6 +902,36 @@ app.get('/kitchen', (req, res) => {
     });
 });
 
+// 8.2 ครัวรับงาน (ordered -> cooking กันรับซ้ำแบบ atomic)
+app.post('/kitchen/accept', (req, res) => {
+    const idList = String(req.body.ids || '').split(',').map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 100);
+    if (idList.length === 0) {
+        return res.redirect('/kitchen?msg=invalid');
+    }
+
+    db.get("SELECT employee_id FROM EMPLOYEES WHERE role = 'kitchen' LIMIT 1", [], (err, emp) => {
+        if (err || !emp) {
+            console.error('Error finding kitchen employee:', err ? err.message : 'not found');
+            return res.status(500).send('เกิดข้อผิดพลาดในการรับรายการอาหาร');
+        }
+
+        const marks = idList.map(() => '?').join(',');
+        const sqlUpdate = `UPDATE ORDER_ITEMS SET status = 'cooking', updated_by_employee_id = ?
+            WHERE order_item_id IN (${marks}) AND status = 'ordered'`;
+
+        db.run(sqlUpdate, [emp.employee_id, ...idList], function (err) {
+            if (err) {
+                console.error('Error accepting kitchen order:', err.message);
+                return res.status(500).send('เกิดข้อผิดพลาดในการรับรายการอาหาร');
+            }
+            if (this.changes === 0) {
+                return res.redirect('/kitchen?msg=taken');
+            }
+            res.redirect('/kitchen?tab=accepted');
+        });
+    });
+});
+
 // -----------------------------------------------------------------------------
 // Start Server
 // -----------------------------------------------------------------------------
