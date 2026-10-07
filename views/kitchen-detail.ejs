@@ -71,6 +71,19 @@
             padding: 4px 12px;
             margin-left: 8px;
         }
+        #offline {
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #92400e;
+            background-color: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+        .wait { font-size: 0.95rem; color: #64748b; }
+        .wait-over { color: #dc2626; font-weight: bold; }
         .btn-done {
             min-height: 48px;
             min-width: 120px;
@@ -116,6 +129,7 @@
         <a class="back-link" href="/kitchen?tab=accepted">‹ กลับงานที่รับแล้ว</a>
     </header>
 
+    <div id="offline" hidden>ขาดการเชื่อมต่อ กำลังลองใหม่...</div>
     <main id="content">
         <% if (msg === 'invalid') { %>
             <div class="alert">ข้อมูลไม่ถูกต้อง</div>
@@ -130,6 +144,7 @@
                         <div class="dish-info">
                             <span><%= item.qty %>× <%= item.name %></span>
                             <span class="dish-time"><%= item.timeTh %> น.</span>
+                            <span class="wait<%= item.waitMin > 10 ? ' wait-over' : '' %>">(รอ <%= item.waitMin %> นาที)</span>
                             <% if (item.note) { %>
                                 <span class="dish-note">หมายเหตุ: <%= item.note %></span>
                             <% } %>
@@ -154,6 +169,7 @@
                         <div class="dish-info">
                             <span><%= item.qty %>× <%= item.name %></span>
                             <span class="badge-wait">รอเสิร์ฟ</span>
+                            <span class="wait<%= item.waitMin > 10 ? ' wait-over' : '' %>">(รอ <%= item.waitMin %> นาที)</span>
                             <% if (item.note) { %>
                                 <span class="dish-note">หมายเหตุ: <%= item.note %></span>
                             <% } %>
@@ -171,5 +187,26 @@
         <% } %>
     </main>
 </div>
+<script>
+    (function () {
+        const p = new URLSearchParams(location.search);
+        if (p.has('msg')) {
+            p.delete('msg');
+            const q = p.toString();
+            history.replaceState(null, '', location.pathname + (q ? '?' + q : ''));
+        }
+    })();
+    setInterval(async () => {
+        try {
+            const res = await fetch(location.href, { cache: 'no-store' });
+            if (!res.ok) throw new Error('bad status');
+            const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+            document.getElementById('content').innerHTML = doc.getElementById('content').innerHTML;
+            document.getElementById('offline').hidden = true;
+        } catch (e) {
+            document.getElementById('offline').hidden = false;
+        }
+    }, 4000);
+</script>
 </body>
 </html>
