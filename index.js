@@ -308,7 +308,7 @@ app.get('/cart', (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// 5. API ยืนยันออร์เดอร์ส่งเข้าครัว (pending -> cooking)
+// 5. API ยืนยันออร์เดอร์ส่งเข้าครัว (pending -> ordered)
 // -----------------------------------------------------------------------------
 app.post('/api/orders/send-to-kitchen', (req, res) => {
     const { tableNo, userId } = req.body;
@@ -321,7 +321,7 @@ app.post('/api/orders/send-to-kitchen', (req, res) => {
 
         const sqlUpdate = `
             UPDATE ORDER_ITEMS 
-            SET status = 'cooking' 
+            SET status = 'ordered', sent_at = CURRENT_TIMESTAMP 
             WHERE order_id = ? 
               AND status = 'pending' 
               AND order_item_id IN (
