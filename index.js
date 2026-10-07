@@ -783,6 +783,8 @@ app.post('/cashier/table/:table_id/finish-payment', (req, res) => {
 const ST = { PENDING: 'pending', ORDERED: 'ordered', COOKING: 'cooking', READY: 'ready', SERVED: 'served' };
 // ครัวเปลี่ยนสถานะรายจานได้แค่ 2 แบบ: key = สถานะปลายทาง, value = สถานะที่ต้องเป็นอยู่ก่อน
 const KITCHEN_STEP = { ready: 'cooking', cooking: 'ready' };
+// พนักงานเสิร์ฟกดได้แบบเดียว: พร้อมเสิร์ฟ -> เสิร์ฟแล้ว (ใช้ที่หน้ารายละเอียดคำสั่งซื้อ)
+const SERVE_STEP = { served: 'ready' };
 // ข้อความแจ้งเตือนที่อนุญาตให้แสดงผ่าน query msg (กันการพิมพ์ค่าดิบจากผู้ใช้)
 const KITCHEN_MSG = ['taken', 'invalid', 'changed'];
 
@@ -824,6 +826,52 @@ function migrateKitchen() {
 
 migrateKitchen();
 
+// แปลงแถวผลลัพธ์เป็นบิล (1 โต๊ะมีได้หลายบิล แยกตามรอบที่ลูกค้ากดส่ง) เรียงบิลเก่าสุดก่อน
+function buildBills(rows, now) {
+    const billGroups = {};
+    (rows || []).forEach((r) => {
+        const sentMs = r.sent_at ? new Date(String(r.sent_at).replace(' ', 'T') + 'Z').getTime() : NaN;
+        const lineTotal = (Number(r.price) || 0) * (Number(r.qty) || 0);
+        const item = {
+            order_item_id: r.order_item_id,
+            qty: r.qty,
+            note: r.note,
+            status: r.status,
+            name: r.name,
+            price: Number(r.price) || 0,
+            lineTotal: lineTotal,
+            sentMs: sentMs,
+            timeTh: isNaN(sentMs) ? '-' : new Date(sentMs).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }),
+            isNew: !isNaN(sentMs) && (now - sentMs) >= 0 && (now - sentMs) <= 60000,
+            waitMin: isNaN(sentMs) ? 0 : Math.max(0, Math.floor((now - sentMs) / 60000))
+        };
+        const key = [r.table_id, r.order_id, String(r.sent_at), r.status].join('|');
+        if (!billGroups[key]) {
+            billGroups[key] = { table_id: r.table_id, table_number: r.table_number, order_id: r.order_id, status: r.status, items: [] };
+        }
+        billGroups[key].items.push(item);
+    });
+
+    const bills = Object.values(billGroups).map((g) => {
+        const first = g.items.reduce((a, b) => (isNaN(a.sentMs) ? b : (isNaN(b.sentMs) ? a : (a.sentMs <= b.sentMs ? a : b))));
+        return {
+            table_id: g.table_id,
+            table_number: g.table_number,
+            order_id: g.order_id,
+            action: g.status === ST.ORDERED ? 'accept' : (g.status === ST.COOKING ? 'update' : 'serve'),
+            items: g.items,
+            ids: g.items.map((i) => i.order_item_id).join(','),
+            firstTimeTh: isNaN(first.sentMs) ? '-' : first.timeTh,
+            hasNew: g.items.some((i) => i.isNew),
+            maxWait: g.items.reduce((a, i) => Math.max(a, i.waitMin), 0),
+            total: g.items.reduce((a, i) => a + i.lineTotal, 0),
+            firstSentMs: isNaN(first.sentMs) ? Number.MAX_SAFE_INTEGER : first.sentMs
+        };
+    });
+    bills.sort((a, b) => a.firstSentMs - b.firstSentMs);
+    return bills;
+}
+
 // 8.1 หน้าครัว (หน้าเดียว: ออเดอร์ใหม่มีปุ่มรับ งานที่รับแล้วมีปุ่มอัพเดท)
 app.get('/kitchen', (req, res) => {
     const rawMsg = String(req.query.msg || '');
@@ -847,51 +895,7 @@ app.get('/kitchen', (req, res) => {
             return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลออเดอร์ครัว');
         }
 
-        const now = Date.now();
-        // จัดกลุ่มเป็นบิล: โต๊ะ + เลขออเดอร์ + รอบเวลาที่กดส่ง + สถานะ (1 โต๊ะมีได้หลายบิล)
-        const billGroups = {};
-        (rows || []).forEach((r) => {
-            const sentMs = r.sent_at ? new Date(String(r.sent_at).replace(' ', 'T') + 'Z').getTime() : NaN;
-            const lineTotal = (Number(r.price) || 0) * (Number(r.qty) || 0);
-            const item = {
-                order_item_id: r.order_item_id,
-                qty: r.qty,
-                note: r.note,
-                status: r.status,
-                name: r.name,
-                price: Number(r.price) || 0,
-                lineTotal: lineTotal,
-                sentMs: sentMs,
-                timeTh: isNaN(sentMs) ? '-' : new Date(sentMs).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }),
-                isNew: !isNaN(sentMs) && (now - sentMs) >= 0 && (now - sentMs) <= 60000,
-                waitMin: isNaN(sentMs) ? 0 : Math.max(0, Math.floor((now - sentMs) / 60000))
-            };
-            const key = [r.table_id, r.order_id, String(r.sent_at), r.status].join('|');
-            if (!billGroups[key]) {
-                billGroups[key] = { table_id: r.table_id, table_number: r.table_number, order_id: r.order_id, status: r.status, items: [] };
-            }
-            billGroups[key].items.push(item);
-        });
-
-        const bills = Object.values(billGroups).map((g) => {
-            const first = g.items.reduce((a, b) => (isNaN(a.sentMs) ? b : (isNaN(b.sentMs) ? a : (a.sentMs <= b.sentMs ? a : b))));
-            return {
-                table_id: g.table_id,
-                table_number: g.table_number,
-                order_id: g.order_id,
-                action: g.status === ST.ORDERED ? 'accept' : 'update',
-                items: g.items,
-                ids: g.items.map((i) => i.order_item_id).join(','),
-                firstTimeTh: isNaN(first.sentMs) ? '-' : first.timeTh,
-                hasNew: g.items.some((i) => i.isNew),
-                maxWait: g.items.reduce((a, i) => Math.max(a, i.waitMin), 0),
-                total: g.items.reduce((a, i) => a + i.lineTotal, 0),
-                firstSentMs: isNaN(first.sentMs) ? Number.MAX_SAFE_INTEGER : first.sentMs
-            };
-        });
-        bills.sort((a, b) => a.firstSentMs - b.firstSentMs);
-
-        res.render('kitchen', { bills: bills, msg: msg });
+        res.render('kitchen', { bills: buildBills(rows, Date.now()), msg: msg, mode: 'kitchen', title: 'ครัว - รายการอาหาร' });
     });
 });
 
@@ -982,18 +986,22 @@ app.get('/kitchen/table/:table_id', (req, res) => {
     });
 });
 
-// 8.4 ครัวเปลี่ยนสถานะรายจาน (cooking <-> ready ห้ามข้ามขั้น)
+// 8.4 เปลี่ยนสถานะรายจาน (ครัว: cooking <-> ready / เสิร์ฟ: ready -> served ห้ามข้ามขั้น)
 app.post('/kitchen/item/:id/status', (req, res) => {
     const itemId = Number(req.params.id);
     const to = String(req.body.to || '');
     const tableId = String(req.body.table_id || '');
     const backTo = /^[0-9]+$/.test(tableId) ? '/kitchen/table/' + tableId : '/kitchen';
-    const backWithMsg = (key) => backTo + (backTo.includes('?') ? '&' : '?') + 'msg=' + key;
+    const homeBack = String(req.body.back || '') === '/orders' ? '/orders' : null;
+    const backWithMsg = (key) => (homeBack || backTo) + ((homeBack || backTo).includes('?') ? '&' : '?') + 'msg=' + key;
 
-    if (!Number.isInteger(itemId) || itemId <= 0 || !Object.prototype.hasOwnProperty.call(KITCHEN_STEP, to)) {
+    let stepMap = null;
+    if (Object.prototype.hasOwnProperty.call(KITCHEN_STEP, to)) stepMap = KITCHEN_STEP;
+    else if (Object.prototype.hasOwnProperty.call(SERVE_STEP, to)) stepMap = SERVE_STEP;
+    if (!Number.isInteger(itemId) || itemId <= 0 || !stepMap) {
         return res.redirect(backWithMsg('invalid'));
     }
-    const from = KITCHEN_STEP[to];
+    const from = stepMap[to];
 
     db.get("SELECT employee_id FROM EMPLOYEES WHERE role = 'kitchen' LIMIT 1", [], (err, emp) => {
         if (err || !emp) {
@@ -1010,8 +1018,37 @@ app.post('/kitchen/item/:id/status', (req, res) => {
                 if (this.changes === 0) {
                     return res.redirect(backWithMsg('changed'));
                 }
-                res.redirect(backTo);
+                res.redirect(homeBack || backTo);
             });
+    });
+});
+
+// 8.5 หน้ารายละเอียดคำสั่งซื้อ (พนักงานเสิร์ฟ/แคชเชียร์ดูได้: เห็นทุกบิล บิลใหม่ขึ้นก่อน)
+app.get('/orders', (req, res) => {
+    const rawMsg = String(req.query.msg || '');
+    const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
+
+    const sql = `
+        SELECT t.table_id, t.table_number, o.order_id, oi.order_item_id, oi.qty, oi.note, oi.status,
+               COALESCE(oi.sent_at, o.created_at) AS sent_at, mi.name, mi.price
+        FROM ORDER_ITEMS oi
+        JOIN ORDERS o     ON o.order_id = oi.order_id
+        JOIN SESSIONS s   ON s.session_id = o.session_id
+        JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
+        JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+        WHERE oi.status IN ('ordered', 'cooking', 'ready') AND LOWER(TRIM(s.status)) = 'active'
+        ORDER BY sent_at ASC, oi.order_item_id ASC
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err) {
+            console.error('Error fetching order details:', err.message);
+            return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลคำสั่งซื้อ');
+        }
+
+        const bills = buildBills(rows, Date.now()).reverse();
+
+        res.render('kitchen', { bills: bills, msg: msg, mode: 'server', title: 'รายละเอียดคำสั่งซื้อ' });
     });
 });
 
