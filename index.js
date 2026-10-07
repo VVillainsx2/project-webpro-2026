@@ -824,6 +824,84 @@ function migrateKitchen() {
 
 migrateKitchen();
 
+// 8.1 หน้าครัว (แท็บออเดอร์ใหม่ / งานที่รับแล้ว)
+app.get('/kitchen', (req, res) => {
+    const tab = req.query.tab === 'accepted' ? 'accepted' : 'new';
+    const rawMsg = String(req.query.msg || '');
+    const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
+
+    const sql = `
+        SELECT t.table_id, t.table_number, oi.order_item_id, oi.qty, oi.note, oi.status,
+               COALESCE(oi.sent_at, o.created_at) AS sent_at, mi.name
+        FROM ORDER_ITEMS oi
+        JOIN ORDERS o     ON o.order_id = oi.order_id
+        JOIN SESSIONS s   ON s.session_id = o.session_id
+        JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
+        JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+        WHERE oi.status IN ('ordered', 'cooking') AND LOWER(TRIM(s.status)) = 'active'
+        ORDER BY sent_at ASC, oi.order_item_id ASC
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err) {
+            console.error('Error fetching kitchen orders:', err.message);
+            return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลออเดอร์ครัว');
+        }
+
+        const now = Date.now();
+        const groups = {};
+        (rows || []).forEach((r) => {
+            const sentMs = r.sent_at ? new Date(String(r.sent_at).replace(' ', 'T') + 'Z').getTime() : NaN;
+            const item = {
+                order_item_id: r.order_item_id,
+                qty: r.qty,
+                note: r.note,
+                status: r.status,
+                name: r.name,
+                sentMs: sentMs,
+                timeTh: isNaN(sentMs) ? '-' : new Date(sentMs).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }),
+                isNew: !isNaN(sentMs) && (now - sentMs) >= 0 && (now - sentMs) <= 60000,
+                waitMin: isNaN(sentMs) ? 0 : Math.max(0, Math.floor((now - sentMs) / 60000))
+            };
+            const key = String(r.table_id);
+            if (!groups[key]) {
+                groups[key] = { table_id: r.table_id, table_number: r.table_number, items: [] };
+            }
+            groups[key].items.push(item);
+        });
+
+        const pickByStatus = (want) => {
+            const list = [];
+            Object.values(groups).forEach((g) => {
+                const items = g.items.filter((i) => i.status === want);
+                if (items.length === 0) return;
+                const first = items.reduce((a, b) => (isNaN(a.sentMs) ? b : (isNaN(b.sentMs) ? a : (a.sentMs <= b.sentMs ? a : b))));
+                list.push({
+                    table_id: g.table_id,
+                    table_number: g.table_number,
+                    items: items,
+                    ids: items.map((i) => i.order_item_id).join(','),
+                    firstTimeTh: isNaN(first.sentMs) ? '-' : first.timeTh,
+                    hasNew: items.some((i) => i.isNew),
+                    firstSentMs: isNaN(first.sentMs) ? Number.MAX_SAFE_INTEGER : first.sentMs
+                });
+            });
+            list.sort((a, b) => a.firstSentMs - b.firstSentMs);
+            return list;
+        };
+
+        const newTables = pickByStatus(ST.ORDERED);
+        const acceptedTables = pickByStatus(ST.COOKING);
+
+        res.render('kitchen', {
+            tables: tab === 'accepted' ? acceptedTables : newTables,
+            tab: tab,
+            msg: msg,
+            counts: { new: newTables.length, accepted: acceptedTables.length }
+        });
+    });
+});
+
 // -----------------------------------------------------------------------------
 // Start Server
 // -----------------------------------------------------------------------------
