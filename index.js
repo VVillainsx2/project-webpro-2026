@@ -778,6 +778,53 @@ app.post('/cashier/table/:table_id/finish-payment', (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
+// 8. ส่วนงานครัว (Kitchen)
+// -----------------------------------------------------------------------------
+const ST = { PENDING: 'pending', ORDERED: 'ordered', COOKING: 'cooking', READY: 'ready', SERVED: 'served' };
+// ครัวเปลี่ยนสถานะรายจานได้แค่ 2 แบบ: key = สถานะปลายทาง, value = สถานะที่ต้องเป็นอยู่ก่อน
+const KITCHEN_STEP = { ready: 'cooking', cooking: 'ready' };
+// ข้อความแจ้งเตือนที่อนุญาตให้แสดงผ่าน query msg (กันการพิมพ์ค่าดิบจากผู้ใช้)
+const KITCHEN_MSG = ['taken', 'invalid', 'changed'];
+
+// Migration ฝั่งครัว (รันซ้ำได้): เพิ่มคอลัมน์ sent_at + seed พนักงานครัว 1 แถว
+function migrateKitchen() {
+    db.all('PRAGMA table_info(ORDER_ITEMS)', [], (err, cols) => {
+        if (err) {
+            console.error('Kitchen migration ตรวจสอบคอลัมน์ไม่สำเร็จ:', err.message);
+            return;
+        }
+        const hasSentAt = (cols || []).some((c) => c.name === 'sent_at');
+        if (!hasSentAt) {
+            db.run('ALTER TABLE ORDER_ITEMS ADD COLUMN sent_at DATETIME', (err) => {
+                if (err) {
+                    console.error('Kitchen migration เพิ่มคอลัมน์ sent_at ไม่สำเร็จ:', err.message);
+                } else {
+                    console.log('Kitchen migration เพิ่มคอลัมน์ sent_at แล้ว');
+                }
+            });
+        }
+    });
+
+    db.get("SELECT employee_id FROM EMPLOYEES WHERE role = 'kitchen' LIMIT 1", [], (err, row) => {
+        if (err) {
+            console.error('Kitchen migration ตรวจสอบพนักงานครัวไม่สำเร็จ:', err.message);
+            return;
+        }
+        if (!row) {
+            db.run("INSERT INTO EMPLOYEES (name, role) VALUES ('พนักงานครัว', 'kitchen')", (err) => {
+                if (err) {
+                    console.error('Kitchen migration เพิ่มพนักงานครัวไม่สำเร็จ:', err.message);
+                } else {
+                    console.log('Kitchen migration เพิ่มพนักงานครัวแล้ว');
+                }
+            });
+        }
+    });
+}
+
+migrateKitchen();
+
+// -----------------------------------------------------------------------------
 // Start Server
 // -----------------------------------------------------------------------------
 app.listen(PORT, () => {
