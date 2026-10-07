@@ -31,6 +31,10 @@
             font-size: 1.1rem;
             font-weight: bold;
         }
+        .tab-bar a.active {
+            border-color: #16a34a;
+            background-color: #dcfce7;
+        }
         .card-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -77,6 +81,19 @@
             cursor: pointer;
         }
         .btn-accept:disabled { background-color: #94a3b8; cursor: default; }
+        .btn-link {
+            display: block;
+            text-align: center;
+            margin-top: 12px;
+            min-height: 48px;
+            line-height: 48px;
+            font-size: 1.15rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #2563eb;
+            border-radius: 10px;
+            text-decoration: none;
+        }
         .alert {
             text-align: center;
             font-size: 1.1rem;
@@ -106,8 +123,8 @@
     </header>
 
     <nav class="tab-bar">
-        <a href="/kitchen?tab=new">ออเดอร์ใหม่</a>
-        <a href="/kitchen?tab=accepted">งานที่รับแล้ว</a>
+        <a href="/kitchen?tab=new" class="<%= tab === 'new' ? 'active' : '' %>">ออเดอร์ใหม่ (<%= counts.new %>)</a>
+        <a href="/kitchen?tab=accepted" class="<%= tab === 'accepted' ? 'active' : '' %>">งานที่รับแล้ว (<%= counts.accepted %>)</a>
     </nav>
 
     <main id="content">
@@ -139,6 +156,8 @@
                                 <input type="hidden" name="ids" value="<%= t.ids %>">
                                 <button type="submit" class="btn-accept">รับรายการอาหาร</button>
                             </form>
+                        <% } else { %>
+                            <a class="btn-link" href="/kitchen/table/<%= t.table_id %>">อัปเดตสถานะ</a>
                         <% } %>
                     </section>
                 <% }); %>
