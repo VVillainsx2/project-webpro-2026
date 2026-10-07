@@ -932,6 +932,63 @@ app.post('/kitchen/accept', (req, res) => {
     });
 });
 
+// 8.3 หน้าอัปเดตสถานะรายโต๊ะ (cooking / ready ของ session ที่ active)
+app.get('/kitchen/table/:table_id', (req, res) => {
+    const tableId = req.params.table_id;
+    const rawMsg = String(req.query.msg || '');
+    const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
+
+    db.get('SELECT table_id, table_number FROM TABLES WHERE CAST(table_id AS TEXT) = CAST(? AS TEXT)', [tableId], (err, table) => {
+        if (err) {
+            console.error('Error fetching kitchen table:', err.message);
+            return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลโต๊ะครัว');
+        }
+        const tableInfo = table || { table_id: tableId, table_number: tableId };
+
+        const sql = `
+            SELECT oi.order_item_id, oi.qty, oi.note, oi.status,
+                   COALESCE(oi.sent_at, o.created_at) AS sent_at, mi.name
+            FROM ORDER_ITEMS oi
+            JOIN ORDERS o     ON o.order_id = oi.order_id
+            JOIN SESSIONS s   ON s.session_id = o.session_id
+            JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
+            JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
+            WHERE oi.status IN ('cooking', 'ready')
+              AND LOWER(TRIM(s.status)) = 'active'
+              AND CAST(t.table_id AS TEXT) = CAST(? AS TEXT)
+            ORDER BY sent_at ASC, oi.order_item_id ASC
+        `;
+
+        db.all(sql, [tableId], (err, rows) => {
+            if (err) {
+                console.error('Error fetching kitchen table items:', err.message);
+                return res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูลรายการของโต๊ะ');
+            }
+
+            const now = Date.now();
+            const cooking = [];
+            const ready = [];
+            (rows || []).forEach((r) => {
+                const sentMs = r.sent_at ? new Date(String(r.sent_at).replace(' ', 'T') + 'Z').getTime() : NaN;
+                const item = {
+                    order_item_id: r.order_item_id,
+                    qty: r.qty,
+                    note: r.note,
+                    name: r.name,
+                    sentMs: sentMs,
+                    timeTh: isNaN(sentMs) ? '-' : new Date(sentMs).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' }),
+                    isNew: !isNaN(sentMs) && (now - sentMs) >= 0 && (now - sentMs) <= 60000,
+                    waitMin: isNaN(sentMs) ? 0 : Math.max(0, Math.floor((now - sentMs) / 60000))
+                };
+                if (r.status === ST.COOKING) cooking.push(item);
+                else ready.push(item);
+            });
+
+            res.render('kitchen-detail', { table: tableInfo, cooking: cooking, ready: ready, msg: msg });
+        });
+    });
+});
+
 // -----------------------------------------------------------------------------
 // Start Server
 // -----------------------------------------------------------------------------

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ครัว - โต๊ะ <%= table.table_number %></title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #f8fafc;
+            margin: 0;
+            padding: 16px;
+            color: #1e293b;
+        }
+        .kitchen-container { max-width: 800px; margin: 0 auto; }
+        .kitchen-header { text-align: center; margin-bottom: 16px; }
+        .kitchen-header h1 { margin: 0 0 12px 0; font-size: 1.8rem; }
+        .back-link {
+            display: inline-block;
+            min-height: 48px;
+            line-height: 48px;
+            padding: 0 20px;
+            background-color: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            text-decoration: none;
+            color: #334155;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        .section-title { font-size: 1.3rem; font-weight: bold; margin: 20px 0 12px 0; }
+        .dish-card {
+            background-color: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .dish-card.ready { opacity: 0.65; }
+        .dish-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+        .dish-info { font-size: 1.2rem; }
+        .dish-time { font-size: 0.95rem; color: #64748b; }
+        .dish-note {
+            display: block;
+            color: #dc2626;
+            font-style: italic;
+            font-size: 1rem;
+            word-break: break-word;
+            margin-top: 4px;
+        }
+        .badge-wait {
+            display: inline-block;
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #166534;
+            background-color: #dcfce7;
+            border-radius: 20px;
+            padding: 4px 12px;
+            margin-left: 8px;
+        }
+        .btn-done {
+            min-height: 48px;
+            min-width: 120px;
+            padding: 0 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #16a34a;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-done:disabled { background-color: #94a3b8; cursor: default; }
+        .btn-back-step {
+            min-height: 48px;
+            padding: 0 16px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #334155;
+            background-color: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .empty-state {
+            text-align: center;
+            color: #64748b;
+            font-size: 1.15rem;
+            padding: 32px 16px;
+            background-color: #ffffff;
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+<div class="kitchen-container">
+    <header class="kitchen-header">
+        <h1>โต๊ะ <%= table.table_number %></h1>
+        <a class="back-link" href="/kitchen?tab=accepted">‹ กลับงานที่รับแล้ว</a>
+    </header>
+
+    <main id="content">
+        <div class="section-title">กำลังปรุง (<%= cooking.length %>)</div>
+        <% if (cooking && cooking.length > 0) { %>
+            <% cooking.forEach(function(item) { %>
+                <section class="dish-card">
+                    <div class="dish-row">
+                        <div class="dish-info">
+                            <span><%= item.qty %>× <%= item.name %></span>
+                            <span class="dish-time"><%= item.timeTh %> น.</span>
+                            <% if (item.note) { %>
+                                <span class="dish-note">หมายเหตุ: <%= item.note %></span>
+                            <% } %>
+                        </div>
+                        <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="var b=this.querySelector('[type=submit]');if(b)b.disabled=true;">
+                            <input type="hidden" name="to" value="ready">
+                            <input type="hidden" name="table_id" value="<%= table.table_id %>">
+                            <button type="submit" class="btn-done">ปรุงเสร็จ</button>
+                        </form>
+                    </div>
+                </section>
+            <% }); %>
+        <% } else { %>
+            <div class="empty-state">ไม่มีรายการกำลังปรุง</div>
+        <% } %>
+
+        <div class="section-title">พร้อมเสิร์ฟ (<%= ready.length %>)</div>
+        <% if (ready && ready.length > 0) { %>
+            <% ready.forEach(function(item) { %>
+                <section class="dish-card ready">
+                    <div class="dish-row">
+                        <div class="dish-info">
+                            <span><%= item.qty %>× <%= item.name %></span>
+                            <span class="badge-wait">รอเสิร์ฟ</span>
+                            <% if (item.note) { %>
+                                <span class="dish-note">หมายเหตุ: <%= item.note %></span>
+                            <% } %>
+                        </div>
+                        <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="var b=this.querySelector('[type=submit]');if(b)b.disabled=true;">
+                            <input type="hidden" name="to" value="cooking">
+                            <input type="hidden" name="table_id" value="<%= table.table_id %>">
+                            <button type="submit" class="btn-back-step">ย้อนกลับ</button>
+                        </form>
+                    </div>
+                </section>
+            <% }); %>
+        <% } else { %>
+            <div class="empty-state">ยังไม่มีรายการพร้อมเสิร์ฟ</div>
+        <% } %>
+    </main>
+</div>
+</body>
+</html>
