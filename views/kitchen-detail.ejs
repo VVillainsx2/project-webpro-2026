@@ -110,6 +110,22 @@
             cursor: pointer;
             white-space: nowrap;
         }
+        .btn-back-step:disabled { background-color: #94a3b8; cursor: default; }
+        .btn-serve {
+            min-height: 48px;
+            min-width: 120px;
+            padding: 0 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #0284c7;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-serve:disabled { background-color: #94a3b8; cursor: default; }
+        .dish-actions { display: flex; flex-direction: column; gap: 8px; }
         .empty-state {
             text-align: center;
             color: #64748b;
@@ -174,11 +190,18 @@
                                 <span class="dish-note">หมายเหตุ: <%= item.note %></span>
                             <% } %>
                         </div>
-                        <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="var b=this.querySelector('[type=submit]');if(b)b.disabled=true;">
-                            <input type="hidden" name="to" value="cooking">
-                            <input type="hidden" name="table_id" value="<%= table.table_id %>">
-                            <button type="submit" class="btn-back-step">ย้อนกลับ</button>
-                        </form>
+                        <div class="dish-actions">
+                            <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="var b=this.querySelector('[type=submit]');if(b)b.disabled=true;">
+                                <input type="hidden" name="to" value="served">
+                                <input type="hidden" name="table_id" value="<%= table.table_id %>">
+                                <button type="submit" class="btn-serve">เสิร์ฟแล้ว</button>
+                            </form>
+                            <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="var b=this.querySelector('[type=submit]');if(b)b.disabled=true;">
+                                <input type="hidden" name="to" value="cooking">
+                                <input type="hidden" name="table_id" value="<%= table.table_id %>">
+                                <button type="submit" class="btn-back-step">ย้อนกลับ</button>
+                            </form>
+                        </div>
                     </div>
                 </section>
             <% }); %>
