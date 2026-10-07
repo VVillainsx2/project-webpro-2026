@@ -105,6 +105,29 @@
             padding: 12px;
             margin-bottom: 16px;
         }
+        #offline {
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #92400e;
+            background-color: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+        .badge-new {
+            display: inline-block;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #ef4444;
+            border-radius: 20px;
+            padding: 4px 12px;
+            margin-left: 8px;
+        }
+        .wait { font-size: 0.95rem; color: #64748b; }
+        .wait-over { color: #dc2626; font-weight: bold; }
         .empty-state {
             text-align: center;
             color: #64748b;
@@ -127,6 +150,7 @@
         <a href="/kitchen?tab=accepted" class="<%= tab === 'accepted' ? 'active' : '' %>">งานที่รับแล้ว (<%= counts.accepted %>)</a>
     </nav>
 
+    <div id="offline" hidden>ขาดการเชื่อมต่อ กำลังลองใหม่...</div>
     <main id="content">
         <% if (msg === 'taken') { %>
             <div class="alert">มีคนรับรายการนี้ไปแล้ว</div>
@@ -140,8 +164,8 @@
                 <% tables.forEach(function(t) { %>
                     <section class="order-card">
                         <div class="card-head">
-                            <span class="table-name">โต๊ะ <%= t.table_number %></span>
-                            <span class="order-time"><%= t.firstTimeTh %> น.</span>
+                            <span class="table-name">โต๊ะ <%= t.table_number %><% if (t.hasNew) { %><span class="badge-new">ใหม่</span><% } %></span>
+                            <span class="order-time"><%= t.firstTimeTh %> น. <span class="wait<%= t.maxWait > 10 ? ' wait-over' : '' %>">(รอ <%= t.maxWait %> นาที)</span></span>
                         </div>
                         <% t.items.forEach(function(item) { %>
                             <div class="dish">
@@ -171,5 +195,26 @@
         <% } %>
     </main>
 </div>
+<script>
+    (function () {
+        const p = new URLSearchParams(location.search);
+        if (p.has('msg')) {
+            p.delete('msg');
+            const q = p.toString();
+            history.replaceState(null, '', location.pathname + (q ? '?' + q : ''));
+        }
+    })();
+    setInterval(async () => {
+        try {
+            const res = await fetch(location.href, { cache: 'no-store' });
+            if (!res.ok) throw new Error('bad status');
+            const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+            document.getElementById('content').innerHTML = doc.getElementById('content').innerHTML;
+            document.getElementById('offline').hidden = true;
+        } catch (e) {
+            document.getElementById('offline').hidden = false;
+        }
+    }, 4000);
+</script>
 </body>
 </html>

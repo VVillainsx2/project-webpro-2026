@@ -883,6 +883,7 @@ app.get('/kitchen', (req, res) => {
                     ids: items.map((i) => i.order_item_id).join(','),
                     firstTimeTh: isNaN(first.sentMs) ? '-' : first.timeTh,
                     hasNew: items.some((i) => i.isNew),
+                    maxWait: items.reduce((a, i) => Math.max(a, i.waitMin), 0),
                     firstSentMs: isNaN(first.sentMs) ? Number.MAX_SAFE_INTEGER : first.sentMs
                 });
             });
