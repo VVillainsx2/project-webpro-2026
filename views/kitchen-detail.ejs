@@ -51,7 +51,7 @@
             .kitchen-container { margin-left: auto; }
         }
         .kitchen-header { text-align: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 3px solid #16a34a; }
-        .kitchen-header h1 { margin: 0 0 12px 0; font-size: 2rem; color: #0f172a; letter-spacing: 0.5px; }
+        .kitchen-header h1 { margin: 0 0 12px 0; font-size: 2rem; color: #0f172a; letter-spacing: 0.5px; text-wrap: balance; }
         .back-link {
             display: inline-block;
             min-height: 48px;
@@ -64,8 +64,8 @@
             color: #334155;
             font-size: 1.1rem;
             font-weight: bold;
-            box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.12);
-            transition: transform 0.1s;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+            transition: transform 0.1s ease-out;
         }
         .back-link:active { transform: scale(0.98); }
         .alert {
@@ -78,7 +78,7 @@
             border-radius: 14px;
             padding: 12px;
             margin-bottom: 16px;
-            box-shadow: 0 4px 10px rgba(220, 38, 38, 0.15);
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.12);
         }
         #offline {
             text-align: center;
@@ -90,28 +90,27 @@
             border-radius: 14px;
             padding: 12px;
             margin-bottom: 16px;
-            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.2);
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
         }
         .section-title {
             font-size: 1.35rem;
             font-weight: bold;
             color: #0f172a;
             margin: 22px 0 12px 0;
-            padding-left: 10px;
-            border-left: 5px solid #16a34a;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #e2e8f0;
         }
         .dish-card {
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
-            border-left: 6px solid #f59e0b;
-            border-radius: 16px;
+            border-radius: 12px;
             padding: 18px;
             margin-bottom: 12px;
-            box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
         }
-        .dish-card.ready { border-left-color: #2563eb; }
-        .dish-card.cancelled { border-left-color: #64748b; opacity: 0.75; background-color: #f8fafc; }
-        .dish-card.served { border-left-color: #0284c7; opacity: 0.75; background-color: #f0fdf4; }
+        .dish-card.ready { background-color: #f5f9ff; }
+        .dish-card.cancelled { opacity: 0.8; background-color: #f8fafc; }
+        .dish-card.served { opacity: 0.8; background-color: #f0fdf4; }
         .badge-served {
             display: inline-block;
             font-size: 0.95rem;
@@ -223,8 +222,8 @@
             border-radius: 12px;
             cursor: pointer;
             white-space: nowrap;
-            box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.12);
-            transition: transform 0.1s;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+            transition: transform 0.1s ease-out;
         }
         .btn-back-step:active { transform: scale(0.98); }
         .btn-back-step:disabled { background-color: #94a3b8; cursor: default; box-shadow: none; }
@@ -253,6 +252,14 @@
             border: 2px dashed #cbd5e1;
             border-radius: 12px;
             margin-bottom: 12px;
+        }
+        /* โฟกัสคีย์บอร์ดต้องเห็นชัด + เคารพ reduced motion */
+        a:focus-visible, button:focus-visible {
+            outline: 3px solid #2563eb;
+            outline-offset: 2px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            * { transition: none !important; }
         }
     </style>
 </head>

@@ -51,7 +51,7 @@
             .kitchen-container { margin-left: auto; }
         }
         .kitchen-header { text-align: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 3px solid #16a34a; }
-        .kitchen-header h1 { margin: 0; font-size: 2rem; color: #0f172a; letter-spacing: 0.5px; }
+        .kitchen-header h1 { margin: 0; font-size: 2rem; color: #0f172a; letter-spacing: 0.5px; text-wrap: balance; }
         .card-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -63,20 +63,20 @@
         .order-card {
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
-            border-left: 6px solid #94a3b8;
-            border-radius: 16px;
+            border-radius: 12px;
             padding: 18px;
-            box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.15);
-            transition: transform 0.15s, box-shadow 0.15s;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+            transition: transform 0.15s ease-out, border-color 0.15s ease-out;
         }
         .order-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 12px 22px -8px rgba(0, 0, 0, 0.22);
+            border-color: #cbd5e1;
         }
-        .order-card.acc-new { border-left-color: #16a34a; }
-        .order-card.acc-cook { border-left-color: #2563eb; }
-        .order-card.acc-serve { border-left-color: #0284c7; }
-        .order-card.cancelled { border-left-color: #64748b; opacity: 0.75; background-color: #f8fafc; }
+        /* สีพื้นบอกสถานะบิล (พื้น tint ทั้งใบ ไม่ใช่แถบข้าง) */
+        .order-card.acc-new { background-color: #f6fef9; }
+        .order-card.acc-cook { background-color: #f5f9ff; }
+        .order-card.acc-serve { background-color: #f2fafd; }
+        .order-card.cancelled { background-color: #f8fafc; opacity: 0.8; }
         .card-head {
             display: flex;
             justify-content: space-between;
@@ -198,20 +198,19 @@
             gap: 8px;
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
-            border-left: 6px solid #2563eb;
-            border-radius: 16px;
+            border-radius: 12px;
             padding: 22px 18px;
             min-height: 48px;
             text-decoration: none;
             color: #0f172a;
             font-size: 1.3rem;
             font-weight: bold;
-            box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.15);
-            transition: transform 0.15s, box-shadow 0.15s;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+            transition: transform 0.15s ease-out, border-color 0.15s ease-out;
         }
         .table-link:hover {
             transform: translateY(-2px);
-            box-shadow: 0 12px 22px -8px rgba(0, 0, 0, 0.22);
+            border-color: #93c5fd;
         }
         .alert {
             text-align: center;
@@ -223,7 +222,7 @@
             border-radius: 14px;
             padding: 12px;
             margin-bottom: 16px;
-            box-shadow: 0 4px 10px rgba(220, 38, 38, 0.15);
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.12);
         }
         #offline {
             text-align: center;
@@ -235,7 +234,7 @@
             border-radius: 14px;
             padding: 12px;
             margin-bottom: 16px;
-            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.2);
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
         }
         .badge-new {
             display: inline-block;
@@ -253,11 +252,10 @@
             font-size: 0.9rem;
             font-weight: bold;
             color: #ffffff;
-            background-color: #f59e0b;
+            background-color: #b45309;
             border-radius: 20px;
             padding: 5px 13px;
             margin-left: 8px;
-            box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4);
         }
         .badge-ready {
             display: inline-block;
@@ -290,7 +288,20 @@
             background-color: #ffffff;
             border: 2px dashed #cbd5e1;
             border-radius: 16px;
-            box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.08);
+        }
+        .empty-state small {
+            display: block;
+            margin-top: 8px;
+            font-size: 1rem;
+            color: #64748b;
+        }
+        /* โฟกัสคีย์บอร์ดต้องเห็นชัด + เคารพ reduced motion */
+        a:focus-visible, button:focus-visible {
+            outline: 3px solid #2563eb;
+            outline-offset: 2px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            * { transition: none !important; }
         }
     </style>
 </head>
@@ -364,7 +375,7 @@
                     <% }); %>
                 </div>
             <% } else { %>
-                <div class="empty-state">ไม่มีออเดอร์ใหม่</div>
+                <div class="empty-state">ไม่มีออเดอร์ใหม่<small>บิลที่ลูกค้ากดส่งจะขึ้นที่นี่เอง ไม่ต้องกดรีเฟรช</small></div>
             <% } %>
         <% } %>
 
@@ -393,7 +404,7 @@
                     <% }); %>
                 </div>
             <% } else { %>
-                <div class="empty-state">ไม่มีออเดอร์ที่ต้องทำ</div>
+                <div class="empty-state">ไม่มีออเดอร์ที่ต้องทำ<small>จานที่กดรับแล้วจะมาอยู่ที่นี่</small></div>
             <% } %>
         <% } %>
 
@@ -408,7 +419,7 @@
                     <% }); %>
                 </div>
             <% } else { %>
-                <div class="empty-state">ไม่มีโต๊ะที่ต้องอัพเดท</div>
+                <div class="empty-state">ไม่มีโต๊ะที่ต้องอัพเดท<small>โต๊ะที่มีงานค้างจะขึ้นที่นี่ กดเพื่อดูรายจาน</small></div>
             <% } %>
         <% } %>
     </main>
