@@ -93,13 +93,20 @@
             box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
         }
         .section-title {
-            font-size: 1.35rem;
+            font-size: 1.3rem;
             font-weight: bold;
-            color: #0f172a;
+            color: #ffffff;
             margin: 22px 0 12px 0;
-            padding-bottom: 6px;
-            border-bottom: 2px solid #e2e8f0;
+            padding: 10px 14px;
+            border-radius: 12px;
+            letter-spacing: 0.5px;
         }
+        /* สีแถบแยกตามกองงาน */
+        .sec-ordered { background-color: #b45309; }
+        .sec-cooking { background-color: #16a34a; }
+        .sec-ready { background-color: #2563eb; }
+        .sec-served { background-color: #0284c7; }
+        .sec-cancelled { background-color: #dc2626; }
         .dish-card {
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
@@ -109,7 +116,7 @@
             box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
         }
         .dish-card.ready { background-color: #f5f9ff; }
-        .dish-card.cancelled { opacity: 0.8; background-color: #f8fafc; }
+        .dish-card.cancelled { background-color: #fef2f2; border: 1px solid #fca5a5; }
         .dish-card.served { opacity: 0.8; background-color: #f0fdf4; }
         .badge-served {
             display: inline-block;
@@ -283,7 +290,7 @@
             <div class="alert">สถานะรายการเปลี่ยนไปแล้ว</div>
         <% } %>
 
-        <div class="section-title">รอรับ (<%= ordered.length %>)</div>
+        <div class="section-title sec-ordered">รอรับ (<%= ordered.length %>)</div>
         <% if (ordered.length > 0) { %>
             <% ordered.forEach(function(item) { %>
                 <section class="dish-card">
@@ -308,7 +315,7 @@
             <div class="empty-state">ไม่มีรายการรอรับ</div>
         <% } %>
 
-        <div class="section-title">กำลังปรุง (<%= cooking.length %>)</div>
+        <div class="section-title sec-cooking">กำลังปรุง (<%= cooking.length %>)</div>
         <% if (cooking.length > 0) { %>
             <% cooking.forEach(function(item) { %>
                 <section class="dish-card">
@@ -341,7 +348,7 @@
             <div class="empty-state">ไม่มีรายการกำลังปรุง</div>
         <% } %>
 
-        <div class="section-title">พร้อมเสิร์ฟ (<%= ready.length %>)</div>
+        <div class="section-title sec-ready">พร้อมเสิร์ฟ (<%= ready.length %>)</div>
         <% if (ready.length > 0) { %>
             <% ready.forEach(function(item) { %>
                 <section class="dish-card ready">
@@ -379,7 +386,7 @@
             <div class="empty-state">ยังไม่มีรายการพร้อมเสิร์ฟ</div>
         <% } %>
 
-        <div class="section-title">เสิร์ฟแล้ว (<%= served.length %>)</div>
+        <div class="section-title sec-served">เสิร์ฟแล้ว (<%= served.length %>)</div>
         <% if (served.length > 0) { %>
             <% served.forEach(function(item) { %>
                 <section class="dish-card served">
@@ -398,7 +405,7 @@
             <div class="empty-state">ยังไม่มีรายการที่เสิร์ฟ</div>
         <% } %>
 
-        <div class="section-title">ยกเลิกแล้ว (<%= cancelled.length %>)</div>
+        <div class="section-title sec-cancelled">ยกเลิกแล้ว (<%= cancelled.length %>)</div>
         <% if (cancelled.length > 0) { %>
             <% cancelled.forEach(function(item) { %>
                 <section class="dish-card cancelled">
