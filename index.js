@@ -980,12 +980,14 @@ app.get('/kitchen/ordered', (req, res) => {
 // 8.4 หน้าอัพเดทสถานะ (รายชื่อโต๊ะที่มีงานค้าง กดเข้าไปได้)
 app.get('/kitchen/status', (req, res) => {
     const sql = `
-        SELECT t.table_id, t.table_number, COUNT(*) AS total
+        SELECT t.table_id, t.table_number,
+               COUNT(*) AS total,
+               SUM(CASE WHEN oi.status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled
         FROM ORDER_ITEMS oi
         JOIN ORDERS o     ON o.order_id = oi.order_id
         JOIN SESSIONS s   ON s.session_id = o.session_id
         JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
-        WHERE oi.status IN ('ordered', 'cooking', 'ready', 'cancelled') AND LOWER(TRIM(s.status)) = 'active'
+        WHERE oi.status IN ('ordered', 'cooking', 'ready', 'cancelled', 'served') AND LOWER(TRIM(s.status)) = 'active'
         GROUP BY t.table_id, t.table_number
         ORDER BY CAST(t.table_number AS INTEGER) ASC
     `;
@@ -1021,7 +1023,7 @@ app.get('/kitchen/table/:table_id', (req, res) => {
             JOIN SESSIONS s   ON s.session_id = o.session_id
             JOIN TABLES t     ON CAST(t.table_id AS TEXT) = CAST(s.table_id AS TEXT)
             JOIN MENU_ITEMS mi ON mi.menu_item_id = oi.menu_item_id
-            WHERE oi.status IN ('ordered', 'cooking', 'ready', 'cancelled')
+            WHERE oi.status IN ('ordered', 'cooking', 'ready', 'cancelled', 'served')
               AND LOWER(TRIM(s.status)) = 'active'
               AND CAST(t.table_id AS TEXT) = CAST(? AS TEXT)
             ORDER BY sent_at DESC, oi.order_item_id DESC
@@ -1037,16 +1039,18 @@ app.get('/kitchen/table/:table_id', (req, res) => {
             const ordered = [];
             const cooking = [];
             const ready = [];
+            const served = [];
             const cancelled = [];
             (rows || []).forEach((r) => {
                 const item = makeItem(r, now);
                 if (r.status === ST.ORDERED) ordered.push(item);
                 else if (r.status === ST.COOKING) cooking.push(item);
                 else if (r.status === ST.READY) ready.push(item);
+                else if (r.status === ST.SERVED) served.push(item);
                 else cancelled.push(item);
             });
 
-            res.render('kitchen-detail', { table: tableInfo, ordered: ordered, cooking: cooking, ready: ready, cancelled: cancelled, msg: msg, page: 'status' });
+            res.render('kitchen-detail', { table: tableInfo, ordered: ordered, cooking: cooking, ready: ready, served: served, cancelled: cancelled, msg: msg, page: 'status' });
         });
     });
 });

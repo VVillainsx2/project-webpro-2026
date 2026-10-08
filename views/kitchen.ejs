@@ -347,7 +347,7 @@
                     <% tables.forEach(function(t) { %>
                         <a class="table-link" href="/kitchen/table/<%= t.table_id %>">
                             <span>โต๊ะ <%= t.table_number %></span>
-                            <span><%= t.total %> รายการ</span>
+                            <span>สั่ง <%= t.total %> รายการ<% if (t.cancelled > 0) { %> · ยกเลิก <%= t.cancelled %> รายการ<% } %></span>
                         </a>
                     <% }); %>
                 </div>

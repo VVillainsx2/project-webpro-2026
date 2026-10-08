@@ -89,6 +89,17 @@
         }
         .dish-card.ready { opacity: 0.85; }
         .dish-card.cancelled { opacity: 0.7; background-color: #f1f5f9; }
+        .dish-card.served { opacity: 0.7; background-color: #f0fdf4; }
+        .badge-served {
+            display: inline-block;
+            font-size: 0.95rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #0284c7;
+            border-radius: 20px;
+            padding: 4px 12px;
+            margin-left: 8px;
+        }
         .dish-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
         .dish-info { font-size: 1.2rem; }
         .dish-time { font-size: 0.95rem; color: #64748b; }
@@ -315,6 +326,25 @@
             <% }); %>
         <% } else { %>
             <div class="empty-state">ยังไม่มีรายการพร้อมเสิร์ฟ</div>
+        <% } %>
+
+        <div class="section-title">เสิร์ฟแล้ว (<%= served.length %>)</div>
+        <% if (served.length > 0) { %>
+            <% served.forEach(function(item) { %>
+                <section class="dish-card served">
+                    <div class="dish-row">
+                        <div class="dish-info">
+                            <span><%= item.qty %>× <%= item.name %></span>
+                            <span class="badge-served">เสิร์ฟแล้ว</span>
+                            <% if (item.note) { %>
+                                <span class="dish-note">หมายเหตุ: <%= item.note %></span>
+                            <% } %>
+                        </div>
+                    </div>
+                </section>
+            <% }); %>
+        <% } else { %>
+            <div class="empty-state">ยังไม่มีรายการที่เสิร์ฟ</div>
         <% } %>
 
         <div class="section-title">ยกเลิกแล้ว (<%= cancelled.length %>)</div>
