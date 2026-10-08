@@ -1007,6 +1007,11 @@ app.get('/kitchen/table/:table_id', (req, res) => {
     const tableId = req.params.table_id;
     const rawMsg = String(req.query.msg || '');
     const msg = KITCHEN_MSG.includes(rawMsg) ? rawMsg : '';
+    // จำหน้ามาเพื่อไฮไลต์แท็บและปุ่มกลับให้ถูก (kitchen / status / orders)
+    const rawFrom = String(req.query.from || '');
+    const fromPage = ['kitchen', 'status', 'orders'].includes(rawFrom) ? rawFrom : 'status';
+    const backUrl = fromPage === 'kitchen' ? '/kitchen' : (fromPage === 'orders' ? '/orders' : '/kitchen/status');
+    const backText = fromPage === 'kitchen' ? 'กลับหน้าครัว' : (fromPage === 'orders' ? 'กลับหน้ารายละเอียด' : 'กลับหน้าอัพเดท');
 
     db.get('SELECT table_id, table_number FROM TABLES WHERE CAST(table_id AS TEXT) = CAST(? AS TEXT)', [tableId], (err, table) => {
         if (err) {
@@ -1050,7 +1055,7 @@ app.get('/kitchen/table/:table_id', (req, res) => {
                 else cancelled.push(item);
             });
 
-            res.render('kitchen-detail', { table: tableInfo, ordered: ordered, cooking: cooking, ready: ready, served: served, cancelled: cancelled, msg: msg, page: 'status' });
+            res.render('kitchen-detail', { table: tableInfo, ordered: ordered, cooking: cooking, ready: ready, served: served, cancelled: cancelled, msg: msg, page: (fromPage === 'orders' ? '' : fromPage), backUrl: backUrl, backText: backText });
         });
     });
 });

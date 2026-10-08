@@ -52,6 +52,7 @@
         }
         .kitchen-header { text-align: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 3px solid #16a34a; }
         .kitchen-header h1 { margin: 0; font-size: 2rem; color: #0f172a; letter-spacing: 0.5px; text-wrap: balance; }
+        .count-line { margin: 6px 0 0 0; font-size: 1rem; color: #64748b; }
         .card-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -314,6 +315,13 @@
 <div class="kitchen-container">
     <header class="kitchen-header">
         <h1><%= title %></h1>
+        <% if (mode === 'kitchen' || mode === 'server') { %>
+            <p class="count-line">ทั้งหมด <%= bills.length %> บิล</p>
+        <% } else if (mode === 'ordered') { %>
+            <p class="count-line">ทั้งหมด <%= dishes.length %> จาน</p>
+        <% } else { %>
+            <p class="count-line">ทั้งหมด <%= tables.length %> โต๊ะ</p>
+        <% } %>
     </header>
 
     <div id="offline" hidden>ขาดการเชื่อมต่อ กำลังลองใหม่...</div>
@@ -346,7 +354,7 @@
                                         <span class="dish-note">หมายเหตุ: <%= item.note %></span>
                                     <% } %>
                                     <% if (isServer && b.action === 'serve') { %>
-                                        <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="var x=this.querySelector('[type=submit]');if(x)x.disabled=true;">
+                                        <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="return busySubmit(this, 'กำลังบันทึก...');">
                                             <input type="hidden" name="to" value="served">
                                             <input type="hidden" name="table_id" value="<%= b.table_id %>">
                                             <input type="hidden" name="back" value="/orders">
@@ -360,16 +368,16 @@
                             <% } %>
                             <div class="bill-total"><span>รวม</span><span>฿<%= b.total.toLocaleString() %></span></div>
                             <% if (!isServer && b.action === 'accept') { %>
-                                <form method="POST" action="/kitchen/accept" onsubmit="var x=this.querySelector('[type=submit]');if(x)x.disabled=true;">
+                                <form method="POST" action="/kitchen/accept" onsubmit="return busySubmit(this, 'กำลังรับ...');">
                                     <input type="hidden" name="ids" value="<%= b.ids %>">
                                     <button type="submit" class="btn-accept">รับรายการอาหาร</button>
                                 </form>
                             <% } %>
                             <% if (!isServer && b.action === 'update') { %>
-                                <a class="btn-link" href="/kitchen/table/<%= b.table_id %>">อัพเดทสถานะ</a>
+                                <a class="btn-link" href="/kitchen/table/<%= b.table_id %>?from=kitchen">อัพเดทสถานะ</a>
                             <% } %>
                             <% if (isServer && b.action !== 'none') { %>
-                                <a class="btn-link" href="/kitchen/table/<%= b.table_id %>">ดูรายละเอียด</a>
+                                <a class="btn-link" href="/kitchen/table/<%= b.table_id %>?from=orders">ดูรายละเอียด</a>
                             <% } %>
                         </section>
                     <% }); %>
@@ -394,7 +402,7 @@
                                     <span class="dish-note">หมายเหตุ: <%= d.note %></span>
                                 <% } %>
                             </div>
-                            <form method="POST" action="/kitchen/item/<%= d.order_item_id %>/status" onsubmit="var x=this.querySelector('[type=submit]');if(x)x.disabled=true;">
+                            <form method="POST" action="/kitchen/item/<%= d.order_item_id %>/status" onsubmit="return busySubmit(this, 'กำลังบันทึก...');">
                                 <input type="hidden" name="to" value="ready">
                                 <input type="hidden" name="table_id" value="<%= d.table_id %>">
                                 <input type="hidden" name="back" value="/kitchen/ordered">
@@ -412,7 +420,7 @@
             <% if (tables.length > 0) { %>
                 <div class="card-grid">
                     <% tables.forEach(function(t) { %>
-                        <a class="table-link" href="/kitchen/table/<%= t.table_id %>">
+                        <a class="table-link" href="/kitchen/table/<%= t.table_id %>?from=status">
                             <span>โต๊ะ <%= t.table_number %></span>
                             <span>สั่ง <%= t.total %> รายการ<% if (t.cancelled > 0) { %> · ยกเลิก <%= t.cancelled %> รายการ<% } %></span>
                         </a>
@@ -425,6 +433,12 @@
     </main>
 </div>
 <script>
+    // กดปุ่มแล้วล็อกกันกดซ้ำ + เปลี่ยนข้อความว่ากำลังทำ
+    function busySubmit(f, text) {
+        const b = f.querySelector('[type=submit]');
+        if (b) { b.disabled = true; b.textContent = text; }
+        return true;
+    }
     (function () {
         const p = new URLSearchParams(location.search);
         if (p.has('msg')) {
@@ -434,12 +448,15 @@
         }
     })();
     setInterval(async () => {
+        if (document.hidden) return;
+        const y = window.scrollY;
         try {
             const res = await fetch(location.href, { cache: 'no-store' });
             if (!res.ok) throw new Error('bad status');
             const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
             document.getElementById('content').innerHTML = doc.getElementById('content').innerHTML;
             document.getElementById('offline').hidden = true;
+            window.scrollTo(0, y);
         } catch (e) {
             document.getElementById('offline').hidden = false;
         }
