@@ -267,7 +267,7 @@
                         <section class="order-card<%= b.action === 'none' ? ' cancelled' : '' %>">
                             <div class="card-head">
                                 <span class="table-name">โต๊ะ <%= b.table_number %><% if (b.hasNew) { %><span class="badge-new">ใหม่</span><% } %><% if (b.action === 'update') { %><span class="badge-cooking">กำลังปรุง</span><% } %><% if (b.action === 'serve') { %><span class="badge-ready">พร้อมเสิร์ฟ</span><% } %><% if (b.action === 'none') { %><span class="badge-cancelled">ยกเลิกแล้ว</span><% } %></span>
-                                <span class="order-time">#<%= i + 1 %> · <%= b.firstTimeTh %> น. <span class="wait<%= b.maxWait > 10 ? ' wait-over' : '' %>">(รอ <%= b.maxWait %> นาที)</span></span>
+                                <span class="order-time">#<%= bills.length - i %> · <%= b.firstTimeTh %> น. <span class="wait<%= b.maxWait > 10 ? ' wait-over' : '' %>">(รอ <%= b.maxWait %> นาที)</span></span>
                             </div>
                             <% b.items.forEach(function(item) { %>
                                 <div class="dish">
