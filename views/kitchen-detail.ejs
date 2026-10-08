@@ -13,7 +13,34 @@
             padding: 16px;
             color: #1e293b;
         }
-        .kitchen-container { max-width: 800px; margin: 0 auto; }
+        /* แท็บด้านข้างชุดเดียวกับหน้าครัว */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 180px;
+            background-color: #1e293b;
+            padding-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .sidebar a {
+            color: #ffffff;
+            text-decoration: none;
+            padding: 14px 16px;
+            min-height: 48px;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        .sidebar a.active { background-color: #16a34a; }
+        .kitchen-container { max-width: 800px; margin: 0 auto 0 200px; }
+        @media (max-width: 700px) {
+            .sidebar { position: static; width: auto; flex-direction: row; padding: 8px; }
+            .sidebar a { flex: 1; text-align: center; font-size: 1rem; padding: 12px 4px; }
+            .kitchen-container { margin-left: auto; }
+        }
         .kitchen-header { text-align: center; margin-bottom: 16px; }
         .kitchen-header h1 { margin: 0 0 12px 0; font-size: 1.8rem; }
         .back-link {
@@ -40,6 +67,17 @@
             padding: 12px;
             margin-bottom: 16px;
         }
+        #offline {
+            text-align: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #92400e;
+            background-color: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 16px;
+        }
         .section-title { font-size: 1.3rem; font-weight: bold; margin: 20px 0 12px 0; }
         .dish-card {
             background-color: #ffffff;
@@ -49,7 +87,8 @@
             margin-bottom: 12px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
-        .dish-card.ready { opacity: 0.65; }
+        .dish-card.ready { opacity: 0.85; }
+        .dish-card.cancelled { opacity: 0.7; background-color: #f1f5f9; }
         .dish-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
         .dish-info { font-size: 1.2rem; }
         .dish-time { font-size: 0.95rem; color: #64748b; }
@@ -57,6 +96,14 @@
             display: block;
             color: #dc2626;
             font-style: italic;
+            font-size: 1rem;
+            word-break: break-word;
+            margin-top: 4px;
+        }
+        .cancel-note {
+            display: block;
+            color: #991b1b;
+            font-weight: bold;
             font-size: 1rem;
             word-break: break-word;
             margin-top: 4px;
@@ -71,19 +118,23 @@
             padding: 4px 12px;
             margin-left: 8px;
         }
-        #offline {
-            text-align: center;
-            font-size: 1.1rem;
-            font-weight: bold;
-            color: #92400e;
-            background-color: #fef3c7;
-            border: 2px solid #f59e0b;
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 16px;
-        }
         .wait { font-size: 0.95rem; color: #64748b; }
         .wait-over { color: #dc2626; font-weight: bold; }
+        .dish-actions { display: flex; flex-direction: column; gap: 8px; }
+        .btn-accept {
+            min-height: 48px;
+            min-width: 120px;
+            padding: 0 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #16a34a;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-accept:disabled { background-color: #94a3b8; cursor: default; }
         .btn-done {
             min-height: 48px;
             min-width: 120px;
@@ -98,19 +149,6 @@
             white-space: nowrap;
         }
         .btn-done:disabled { background-color: #94a3b8; cursor: default; }
-        .btn-back-step {
-            min-height: 48px;
-            padding: 0 16px;
-            font-size: 1rem;
-            font-weight: bold;
-            color: #334155;
-            background-color: #ffffff;
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-        .btn-back-step:disabled { background-color: #94a3b8; cursor: default; }
         .btn-serve {
             min-height: 48px;
             min-width: 120px;
@@ -125,7 +163,32 @@
             white-space: nowrap;
         }
         .btn-serve:disabled { background-color: #94a3b8; cursor: default; }
-        .dish-actions { display: flex; flex-direction: column; gap: 8px; }
+        .btn-back-step {
+            min-height: 48px;
+            padding: 0 16px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #334155;
+            background-color: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-back-step:disabled { background-color: #94a3b8; cursor: default; }
+        .btn-cancel {
+            min-height: 48px;
+            padding: 0 16px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #991b1b;
+            background-color: #ffffff;
+            border: 2px solid #ef4444;
+            border-radius: 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-cancel:disabled { background-color: #94a3b8; cursor: default; }
         .empty-state {
             text-align: center;
             color: #64748b;
@@ -139,6 +202,11 @@
     </style>
 </head>
 <body>
+<nav class="sidebar">
+    <a href="/kitchen" class="<%= page === 'kitchen' ? 'active' : '' %>">ครัว</a>
+    <a href="/kitchen/ordered" class="<%= page === 'ordered' ? 'active' : '' %>">ออเดอร์ที่ต้องทำ</a>
+    <a href="/kitchen/status" class="<%= page === 'status' ? 'active' : '' %>">อัพเดทสถานะ</a>
+</nav>
 <div class="kitchen-container">
     <header class="kitchen-header">
         <h1>โต๊ะ <%= table.table_number %></h1>
@@ -152,8 +220,34 @@
         <% } else if (msg === 'changed') { %>
             <div class="alert">สถานะรายการเปลี่ยนไปแล้ว</div>
         <% } %>
+
+        <div class="section-title">รอรับ (<%= ordered.length %>)</div>
+        <% if (ordered.length > 0) { %>
+            <% ordered.forEach(function(item) { %>
+                <section class="dish-card">
+                    <div class="dish-row">
+                        <div class="dish-info">
+                            <span><%= item.qty %>× <%= item.name %></span>
+                            <span class="dish-time"><%= item.timeTh %> น.</span>
+                            <% if (item.note) { %>
+                                <span class="dish-note">หมายเหตุ: <%= item.note %></span>
+                            <% } %>
+                        </div>
+                        <div class="dish-actions">
+                            <form method="POST" action="/kitchen/accept" onsubmit="var b=this.querySelector('[type=submit]');if(b)b.disabled=true;">
+                                <input type="hidden" name="ids" value="<%= item.order_item_id %>">
+                                <button type="submit" class="btn-accept">รับรายการอาหาร</button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+            <% }); %>
+        <% } else { %>
+            <div class="empty-state">ไม่มีรายการรอรับ</div>
+        <% } %>
+
         <div class="section-title">กำลังปรุง (<%= cooking.length %>)</div>
-        <% if (cooking && cooking.length > 0) { %>
+        <% if (cooking.length > 0) { %>
             <% cooking.forEach(function(item) { %>
                 <section class="dish-card">
                     <div class="dish-row">
@@ -165,11 +259,19 @@
                                 <span class="dish-note">หมายเหตุ: <%= item.note %></span>
                             <% } %>
                         </div>
-                        <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="var b=this.querySelector('[type=submit]');if(b)b.disabled=true;">
-                            <input type="hidden" name="to" value="ready">
-                            <input type="hidden" name="table_id" value="<%= table.table_id %>">
-                            <button type="submit" class="btn-done">ปรุงเสร็จ</button>
-                        </form>
+                        <div class="dish-actions">
+                            <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="var b=this.querySelector('[type=submit]');if(b)b.disabled=true;">
+                                <input type="hidden" name="to" value="ready">
+                                <input type="hidden" name="table_id" value="<%= table.table_id %>">
+                                <button type="submit" class="btn-done">ปรุงเสร็จ</button>
+                            </form>
+                            <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="return askReason(this);">
+                                <input type="hidden" name="to" value="cancelled">
+                                <input type="hidden" name="table_id" value="<%= table.table_id %>">
+                                <input type="hidden" name="reason" value="">
+                                <button type="submit" class="btn-cancel">ยกเลิก</button>
+                            </form>
+                        </div>
                     </div>
                 </section>
             <% }); %>
@@ -178,7 +280,7 @@
         <% } %>
 
         <div class="section-title">พร้อมเสิร์ฟ (<%= ready.length %>)</div>
-        <% if (ready && ready.length > 0) { %>
+        <% if (ready.length > 0) { %>
             <% ready.forEach(function(item) { %>
                 <section class="dish-card ready">
                     <div class="dish-row">
@@ -201,6 +303,12 @@
                                 <input type="hidden" name="table_id" value="<%= table.table_id %>">
                                 <button type="submit" class="btn-back-step">ย้อนกลับ</button>
                             </form>
+                            <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="return askReason(this);">
+                                <input type="hidden" name="to" value="cancelled">
+                                <input type="hidden" name="table_id" value="<%= table.table_id %>">
+                                <input type="hidden" name="reason" value="">
+                                <button type="submit" class="btn-cancel">ยกเลิก</button>
+                            </form>
                         </div>
                     </div>
                 </section>
@@ -208,9 +316,37 @@
         <% } else { %>
             <div class="empty-state">ยังไม่มีรายการพร้อมเสิร์ฟ</div>
         <% } %>
+
+        <div class="section-title">ยกเลิกแล้ว (<%= cancelled.length %>)</div>
+        <% if (cancelled.length > 0) { %>
+            <% cancelled.forEach(function(item) { %>
+                <section class="dish-card cancelled">
+                    <div class="dish-row">
+                        <div class="dish-info">
+                            <span><%= item.qty %>× <%= item.name %></span>
+                            <span class="cancel-note">ยกเลิกแล้ว: <%= item.cancel_reason %></span>
+                            <% if (item.note) { %>
+                                <span class="dish-note">หมายเหตุ: <%= item.note %></span>
+                            <% } %>
+                        </div>
+                    </div>
+                </section>
+            <% }); %>
+        <% } else { %>
+            <div class="empty-state">ไม่มีรายการที่ยกเลิก</div>
+        <% } %>
     </main>
 </div>
 <script>
+    // ถามเหตุผลยกเลิกก่อนส่งฟอร์ม (ไม่พิมพ์ = ไม่ส่ง)
+    function askReason(f) {
+        const r = prompt('เหตุผลที่ยกเลิก:');
+        if (!r || !r.trim()) return false;
+        f.reason.value = r.trim();
+        const b = f.querySelector('[type=submit]');
+        if (b) b.disabled = true;
+        return true;
+    }
     (function () {
         const p = new URLSearchParams(location.search);
         if (p.has('msg')) {

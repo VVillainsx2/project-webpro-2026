@@ -13,7 +13,34 @@
             padding: 16px;
             color: #1e293b;
         }
-        .kitchen-container { max-width: 1200px; margin: 0 auto; }
+        /* แท็บด้านข้าง: ครัว / ออเดอร์ที่ต้องทำ / อัพเดทสถานะ */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 180px;
+            background-color: #1e293b;
+            padding-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .sidebar a {
+            color: #ffffff;
+            text-decoration: none;
+            padding: 14px 16px;
+            min-height: 48px;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        .sidebar a.active { background-color: #16a34a; }
+        .kitchen-container { max-width: 1200px; margin: 0 auto 0 200px; }
+        @media (max-width: 700px) {
+            .sidebar { position: static; width: auto; flex-direction: row; padding: 8px; }
+            .sidebar a { flex: 1; text-align: center; font-size: 1rem; padding: 12px 4px; }
+            .kitchen-container { margin-left: auto; }
+        }
         .kitchen-header { text-align: center; margin-bottom: 16px; }
         .kitchen-header h1 { margin: 0 0 12px 0; font-size: 1.8rem; }
         .card-grid {
@@ -31,6 +58,7 @@
             padding: 16px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
+        .order-card.cancelled { opacity: 0.7; background-color: #f1f5f9; }
         .card-head {
             display: flex;
             justify-content: space-between;
@@ -43,6 +71,21 @@
         .order-time { font-size: 0.95rem; color: #64748b; }
         .dish { padding: 6px 0; font-size: 1.15rem; }
         .dish-row-line { display: flex; justify-content: space-between; gap: 8px; }
+        .dish-note {
+            display: block;
+            color: #dc2626;
+            font-style: italic;
+            font-size: 1rem;
+            word-break: break-word;
+        }
+        .cancel-note {
+            display: block;
+            color: #991b1b;
+            font-weight: bold;
+            font-size: 1rem;
+            word-break: break-word;
+            margin-top: 4px;
+        }
         .bill-total {
             display: flex;
             justify-content: space-between;
@@ -52,13 +95,6 @@
             font-size: 1.2rem;
             font-weight: bold;
             color: #334155;
-        }
-        .dish-note {
-            display: block;
-            color: #dc2626;
-            font-style: italic;
-            font-size: 1rem;
-            word-break: break-word;
         }
         .btn-accept {
             width: 100%;
@@ -85,6 +121,47 @@
             background-color: #2563eb;
             border-radius: 10px;
             text-decoration: none;
+        }
+        .btn-done {
+            width: 100%;
+            margin-top: 12px;
+            min-height: 48px;
+            font-size: 1.15rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #16a34a;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .btn-done:disabled { background-color: #94a3b8; cursor: default; }
+        .btn-serve {
+            width: 100%;
+            margin-top: 8px;
+            min-height: 48px;
+            font-size: 1.05rem;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #0284c7;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .btn-serve:disabled { background-color: #94a3b8; cursor: default; }
+        .table-link {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px 16px;
+            min-height: 48px;
+            text-decoration: none;
+            color: #334155;
+            font-size: 1.3rem;
+            font-weight: bold;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
         .alert {
             text-align: center;
@@ -138,19 +215,16 @@
             padding: 4px 12px;
             margin-left: 8px;
         }
-        .btn-serve {
-            width: 100%;
-            margin-top: 8px;
-            min-height: 48px;
-            font-size: 1.05rem;
+        .badge-cancelled {
+            display: inline-block;
+            font-size: 0.9rem;
             font-weight: bold;
             color: #ffffff;
-            background-color: #0284c7;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
+            background-color: #64748b;
+            border-radius: 20px;
+            padding: 4px 12px;
+            margin-left: 8px;
         }
-        .btn-serve:disabled { background-color: #94a3b8; cursor: default; }
         .wait { font-size: 0.95rem; color: #64748b; }
         .wait-over { color: #dc2626; font-weight: bold; }
         .empty-state {
@@ -165,6 +239,11 @@
     </style>
 </head>
 <body>
+<nav class="sidebar">
+    <a href="/kitchen" class="<%= page === 'kitchen' ? 'active' : '' %>">ครัว</a>
+    <a href="/kitchen/ordered" class="<%= page === 'ordered' ? 'active' : '' %>">ออเดอร์ที่ต้องทำ</a>
+    <a href="/kitchen/status" class="<%= page === 'status' ? 'active' : '' %>">อัพเดทสถานะ</a>
+</nav>
 <div class="kitchen-container">
     <header class="kitchen-header">
         <h1><%= title %></h1>
@@ -172,7 +251,7 @@
 
     <div id="offline" hidden>ขาดการเชื่อมต่อ กำลังลองใหม่...</div>
     <main id="content">
-        <% const isServer = (typeof mode !== 'undefined' && mode === 'server'); %>
+        <% const isServer = (mode === 'server'); %>
         <% if (msg === 'taken') { %>
             <div class="alert">มีคนรับรายการนี้ไปแล้ว</div>
         <% } else if (msg === 'invalid') { %>
@@ -180,51 +259,101 @@
         <% } else if (msg === 'changed') { %>
             <div class="alert">สถานะรายการเปลี่ยนไปแล้ว</div>
         <% } %>
-        <% if (bills && bills.length > 0) { %>
-            <div class="card-grid">
-                <% bills.forEach(function(b) { %>
-                    <section class="order-card">
-                        <div class="card-head">
-                            <span class="table-name">โต๊ะ <%= b.table_number %><% if (b.hasNew) { %><span class="badge-new">ใหม่</span><% } %><% if (b.action === 'update') { %><span class="badge-cooking">กำลังปรุง</span><% } %><% if (b.action === 'serve') { %><span class="badge-ready">พร้อมเสิร์ฟ</span><% } %></span>
-                            <span class="order-time">#<%= b.order_id %> · <%= b.firstTimeTh %> น. <span class="wait<%= b.maxWait > 10 ? ' wait-over' : '' %>">(รอ <%= b.maxWait %> นาที)</span></span>
-                        </div>
-                        <% b.items.forEach(function(item) { %>
-                            <div class="dish">
-                                <div class="dish-row-line">
-                                    <span><%= item.qty %>× <%= item.name %></span>
-                                    <span><%= item.lineTotal.toLocaleString() %></span>
+
+        <% if (mode === 'kitchen' || mode === 'server') { %>
+            <% if (bills.length > 0) { %>
+                <div class="card-grid">
+                    <% bills.forEach(function(b, i) { %>
+                        <section class="order-card<%= b.action === 'none' ? ' cancelled' : '' %>">
+                            <div class="card-head">
+                                <span class="table-name">โต๊ะ <%= b.table_number %><% if (b.hasNew) { %><span class="badge-new">ใหม่</span><% } %><% if (b.action === 'update') { %><span class="badge-cooking">กำลังปรุง</span><% } %><% if (b.action === 'serve') { %><span class="badge-ready">พร้อมเสิร์ฟ</span><% } %><% if (b.action === 'none') { %><span class="badge-cancelled">ยกเลิกแล้ว</span><% } %></span>
+                                <span class="order-time">#<%= i + 1 %> · <%= b.firstTimeTh %> น. <span class="wait<%= b.maxWait > 10 ? ' wait-over' : '' %>">(รอ <%= b.maxWait %> นาที)</span></span>
+                            </div>
+                            <% b.items.forEach(function(item) { %>
+                                <div class="dish">
+                                    <div class="dish-row-line">
+                                        <span><%= item.qty %>× <%= item.name %></span>
+                                        <span><%= item.lineTotal.toLocaleString() %></span>
+                                    </div>
+                                    <% if (item.note) { %>
+                                        <span class="dish-note">หมายเหตุ: <%= item.note %></span>
+                                    <% } %>
+                                    <% if (isServer && b.action === 'serve') { %>
+                                        <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="var x=this.querySelector('[type=submit]');if(x)x.disabled=true;">
+                                            <input type="hidden" name="to" value="served">
+                                            <input type="hidden" name="table_id" value="<%= b.table_id %>">
+                                            <input type="hidden" name="back" value="/orders">
+                                            <button type="submit" class="btn-serve">เสิร์ฟแล้ว</button>
+                                        </form>
+                                    <% } %>
                                 </div>
-                                <% if (item.note) { %>
-                                    <span class="dish-note">หมายเหตุ: <%= item.note %></span>
-                                <% } %>
-                                <% if (isServer && b.action === 'serve') { %>
-                                    <form method="POST" action="/kitchen/item/<%= item.order_item_id %>/status" onsubmit="var x=this.querySelector('[type=submit]');if(x)x.disabled=true;">
-                                        <input type="hidden" name="to" value="served">
-                                        <input type="hidden" name="table_id" value="<%= b.table_id %>">
-                                        <input type="hidden" name="back" value="/orders">
-                                        <button type="submit" class="btn-serve">เสิร์ฟแล้ว</button>
-                                    </form>
+                            <% }); %>
+                            <% if (b.action === 'none') { %>
+                                <span class="cancel-note">ยกเลิกแล้ว: <%= b.items[0].cancel_reason %></span>
+                            <% } %>
+                            <div class="bill-total"><span>รวม</span><span>฿<%= b.total.toLocaleString() %></span></div>
+                            <% if (!isServer && b.action === 'accept') { %>
+                                <form method="POST" action="/kitchen/accept" onsubmit="var x=this.querySelector('[type=submit]');if(x)x.disabled=true;">
+                                    <input type="hidden" name="ids" value="<%= b.ids %>">
+                                    <button type="submit" class="btn-accept">รับรายการอาหาร</button>
+                                </form>
+                            <% } %>
+                            <% if (!isServer && b.action === 'update') { %>
+                                <a class="btn-link" href="/kitchen/table/<%= b.table_id %>">อัพเดทสถานะ</a>
+                            <% } %>
+                            <% if (isServer && b.action !== 'none') { %>
+                                <a class="btn-link" href="/kitchen/table/<%= b.table_id %>">ดูรายละเอียด</a>
+                            <% } %>
+                        </section>
+                    <% }); %>
+                </div>
+            <% } else { %>
+                <div class="empty-state">ไม่มีออเดอร์ใหม่</div>
+            <% } %>
+        <% } %>
+
+        <% if (mode === 'ordered') { %>
+            <% if (dishes.length > 0) { %>
+                <div class="card-grid">
+                    <% dishes.forEach(function(d) { %>
+                        <section class="order-card">
+                            <div class="card-head">
+                                <span class="table-name">โต๊ะ <%= d.table_number %></span>
+                                <span class="order-time"><%= d.timeTh %> น.</span>
+                            </div>
+                            <div class="dish">
+                                <span><%= d.qty %>× <%= d.name %></span>
+                                <% if (d.note) { %>
+                                    <span class="dish-note">หมายเหตุ: <%= d.note %></span>
                                 <% } %>
                             </div>
-                        <% }); %>
-                        <div class="bill-total"><span>รวม</span><span>฿<%= b.total.toLocaleString() %></span></div>
-                        <% if (!isServer && b.action === 'accept') { %>
-                            <form method="POST" action="/kitchen/accept" onsubmit="var b=this.querySelector('[type=submit]');if(b)b.disabled=true;">
-                                <input type="hidden" name="ids" value="<%= b.ids %>">
-                                <button type="submit" class="btn-accept">รับรายการอาหาร</button>
+                            <form method="POST" action="/kitchen/item/<%= d.order_item_id %>/status" onsubmit="var x=this.querySelector('[type=submit]');if(x)x.disabled=true;">
+                                <input type="hidden" name="to" value="ready">
+                                <input type="hidden" name="table_id" value="<%= d.table_id %>">
+                                <input type="hidden" name="back" value="/kitchen/ordered">
+                                <button type="submit" class="btn-done">ปรุงอาหารเสร็จแล้ว</button>
                             </form>
-                        <% } %>
-                        <% if (!isServer && b.action === 'update') { %>
-                            <a class="btn-link" href="/kitchen/table/<%= b.table_id %>">อัพเดทสถานะ</a>
-                        <% } %>
-                        <% if (isServer) { %>
-                            <a class="btn-link" href="/kitchen/table/<%= b.table_id %>">ดูรายละเอียด</a>
-                        <% } %>
-                    </section>
-                <% }); %>
-            </div>
-        <% } else { %>
-            <div class="empty-state">ไม่มีออเดอร์ใหม่</div>
+                        </section>
+                    <% }); %>
+                </div>
+            <% } else { %>
+                <div class="empty-state">ไม่มีออเดอร์ที่ต้องทำ</div>
+            <% } %>
+        <% } %>
+
+        <% if (mode === 'tables') { %>
+            <% if (tables.length > 0) { %>
+                <div class="card-grid">
+                    <% tables.forEach(function(t) { %>
+                        <a class="table-link" href="/kitchen/table/<%= t.table_id %>">
+                            <span>โต๊ะ <%= t.table_number %></span>
+                            <span><%= t.total %> รายการ</span>
+                        </a>
+                    <% }); %>
+                </div>
+            <% } else { %>
+                <div class="empty-state">ไม่มีโต๊ะที่ต้องอัพเดท</div>
+            <% } %>
         <% } %>
     </main>
 </div>
