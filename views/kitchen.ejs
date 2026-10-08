@@ -7,10 +7,11 @@
     <style>
         * { box-sizing: border-box; }
         body {
-            font-family: 'Kanit', sans-serif;
-            background-color: #f8fafc;
+            font-family: 'Kanit', Tahoma, sans-serif;
+            background: linear-gradient(180deg, #f8fafc 0%, #edf1f6 100%);
+            background-attachment: fixed;
             margin: 0;
-            padding: 16px;
+            padding: 20px;
             color: #1e293b;
         }
         /* แท็บด้านข้าง: ครัว / ออเดอร์ที่ต้องทำ / อัพเดทสถานะ */
@@ -19,30 +20,38 @@
             left: 0;
             top: 0;
             bottom: 0;
-            width: 180px;
-            background-color: #1e293b;
-            padding-top: 20px;
+            width: 190px;
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+            padding: 22px 12px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
+            box-shadow: 4px 0 14px rgba(0, 0, 0, 0.18);
         }
         .sidebar a {
-            color: #ffffff;
+            color: #cbd5e1;
             text-decoration: none;
             padding: 14px 16px;
             min-height: 48px;
             font-size: 1.1rem;
             font-weight: bold;
+            border-radius: 12px;
+            transition: background-color 0.2s, color 0.2s;
         }
-        .sidebar a.active { background-color: #16a34a; }
-        .kitchen-container { max-width: 1200px; margin: 0 auto 0 200px; }
+        .sidebar a:hover { background-color: rgba(255, 255, 255, 0.08); color: #ffffff; }
+        .sidebar a.active {
+            background-color: #16a34a;
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(22, 163, 74, 0.4);
+        }
+        .kitchen-container { max-width: 1200px; margin: 0 auto 0 210px; }
         @media (max-width: 700px) {
-            .sidebar { position: static; width: auto; flex-direction: row; padding: 8px; }
+            .sidebar { position: static; width: auto; flex-direction: row; padding: 8px; border-radius: 14px; margin-bottom: 12px; }
             .sidebar a { flex: 1; text-align: center; font-size: 1rem; padding: 12px 4px; }
             .kitchen-container { margin-left: auto; }
         }
-        .kitchen-header { text-align: center; margin-bottom: 16px; }
-        .kitchen-header h1 { margin: 0 0 12px 0; font-size: 1.8rem; }
+        .kitchen-header { text-align: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 3px solid #16a34a; }
+        .kitchen-header h1 { margin: 0; font-size: 2rem; color: #0f172a; letter-spacing: 0.5px; }
         .card-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -53,23 +62,33 @@
         }
         .order-card {
             background-color: #ffffff;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+            border-left: 6px solid #94a3b8;
+            border-radius: 16px;
+            padding: 18px;
+            box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.15);
+            transition: transform 0.15s, box-shadow 0.15s;
         }
-        .order-card.cancelled { opacity: 0.7; background-color: #f1f5f9; }
+        .order-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 22px -8px rgba(0, 0, 0, 0.22);
+        }
+        .order-card.acc-new { border-left-color: #16a34a; }
+        .order-card.acc-cook { border-left-color: #2563eb; }
+        .order-card.acc-serve { border-left-color: #0284c7; }
+        .order-card.cancelled { border-left-color: #64748b; opacity: 0.75; background-color: #f8fafc; }
         .card-head {
             display: flex;
             justify-content: space-between;
             align-items: baseline;
-            border-bottom: 1px solid #e2e8f0;
-            padding-bottom: 8px;
-            margin-bottom: 8px;
+            gap: 8px;
+            border-bottom: 1px solid #eef2f7;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
         }
-        .table-name { font-size: 1.4rem; font-weight: bold; color: #334155; }
-        .order-time { font-size: 0.95rem; color: #64748b; }
-        .dish { padding: 6px 0; font-size: 1.15rem; }
+        .table-name { font-size: 1.45rem; font-weight: bold; color: #0f172a; }
+        .order-time { font-size: 0.95rem; color: #64748b; white-space: nowrap; }
+        .dish { padding: 7px 0; font-size: 1.15rem; }
         .dish-row-line { display: flex; justify-content: space-between; gap: 8px; }
         .dish-note {
             display: block;
@@ -77,6 +96,10 @@
             font-style: italic;
             font-size: 1rem;
             word-break: break-word;
+            background-color: #fef2f2;
+            border-radius: 8px;
+            padding: 4px 8px;
+            margin-top: 4px;
         }
         .cancel-note {
             display: block;
@@ -84,17 +107,21 @@
             font-weight: bold;
             font-size: 1rem;
             word-break: break-word;
-            margin-top: 4px;
+            margin-top: 6px;
+            background-color: #fee2e2;
+            border-radius: 8px;
+            padding: 6px 8px;
         }
         .bill-total {
             display: flex;
             justify-content: space-between;
-            border-top: 1px solid #e2e8f0;
-            margin-top: 8px;
-            padding-top: 8px;
-            font-size: 1.2rem;
+            background-color: #f8fafc;
+            border-radius: 10px;
+            margin-top: 10px;
+            padding: 10px 12px;
+            font-size: 1.25rem;
             font-weight: bold;
-            color: #334155;
+            color: #0f172a;
         }
         .btn-accept {
             width: 100%;
@@ -105,10 +132,14 @@
             color: #ffffff;
             background-color: #16a34a;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             cursor: pointer;
+            box-shadow: 0 4px 10px rgba(22, 163, 74, 0.35);
+            transition: transform 0.1s, background-color 0.2s;
         }
-        .btn-accept:disabled { background-color: #94a3b8; cursor: default; }
+        .btn-accept:hover { background-color: #15803d; }
+        .btn-accept:active { transform: scale(0.98); }
+        .btn-accept:disabled { background-color: #94a3b8; cursor: default; box-shadow: none; }
         .btn-link {
             display: block;
             text-align: center;
@@ -119,9 +150,13 @@
             font-weight: bold;
             color: #ffffff;
             background-color: #2563eb;
-            border-radius: 10px;
+            border-radius: 12px;
             text-decoration: none;
+            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+            transition: transform 0.1s, background-color 0.2s;
         }
+        .btn-link:hover { background-color: #1d4ed8; }
+        .btn-link:active { transform: scale(0.98); }
         .btn-done {
             width: 100%;
             margin-top: 12px;
@@ -131,10 +166,14 @@
             color: #ffffff;
             background-color: #16a34a;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             cursor: pointer;
+            box-shadow: 0 4px 10px rgba(22, 163, 74, 0.35);
+            transition: transform 0.1s, background-color 0.2s;
         }
-        .btn-done:disabled { background-color: #94a3b8; cursor: default; }
+        .btn-done:hover { background-color: #15803d; }
+        .btn-done:active { transform: scale(0.98); }
+        .btn-done:disabled { background-color: #94a3b8; cursor: default; box-shadow: none; }
         .btn-serve {
             width: 100%;
             margin-top: 8px;
@@ -144,24 +183,35 @@
             color: #ffffff;
             background-color: #0284c7;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             cursor: pointer;
+            box-shadow: 0 4px 10px rgba(2, 132, 199, 0.35);
+            transition: transform 0.1s, background-color 0.2s;
         }
-        .btn-serve:disabled { background-color: #94a3b8; cursor: default; }
+        .btn-serve:hover { background-color: #0369a1; }
+        .btn-serve:active { transform: scale(0.98); }
+        .btn-serve:disabled { background-color: #94a3b8; cursor: default; box-shadow: none; }
         .table-link {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 8px;
             background-color: #ffffff;
-            border: 2px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 20px 16px;
+            border: 1px solid #e2e8f0;
+            border-left: 6px solid #2563eb;
+            border-radius: 16px;
+            padding: 22px 18px;
             min-height: 48px;
             text-decoration: none;
-            color: #334155;
+            color: #0f172a;
             font-size: 1.3rem;
             font-weight: bold;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.15);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .table-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 22px -8px rgba(0, 0, 0, 0.22);
         }
         .alert {
             text-align: center;
@@ -169,10 +219,11 @@
             font-weight: bold;
             color: #991b1b;
             background-color: #fee2e2;
-            border: 2px solid #ef4444;
-            border-radius: 12px;
+            border: 1px solid #fca5a5;
+            border-radius: 14px;
             padding: 12px;
             margin-bottom: 16px;
+            box-shadow: 0 4px 10px rgba(220, 38, 38, 0.15);
         }
         #offline {
             text-align: center;
@@ -180,10 +231,11 @@
             font-weight: bold;
             color: #92400e;
             background-color: #fef3c7;
-            border: 2px solid #f59e0b;
-            border-radius: 12px;
+            border: 1px solid #fcd34d;
+            border-radius: 14px;
             padding: 12px;
             margin-bottom: 16px;
+            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.2);
         }
         .badge-new {
             display: inline-block;
@@ -192,8 +244,9 @@
             color: #ffffff;
             background-color: #ef4444;
             border-radius: 20px;
-            padding: 4px 12px;
+            padding: 5px 13px;
             margin-left: 8px;
+            box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
         }
         .badge-cooking {
             display: inline-block;
@@ -202,8 +255,9 @@
             color: #ffffff;
             background-color: #f59e0b;
             border-radius: 20px;
-            padding: 4px 12px;
+            padding: 5px 13px;
             margin-left: 8px;
+            box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4);
         }
         .badge-ready {
             display: inline-block;
@@ -212,8 +266,9 @@
             color: #ffffff;
             background-color: #16a34a;
             border-radius: 20px;
-            padding: 4px 12px;
+            padding: 5px 13px;
             margin-left: 8px;
+            box-shadow: 0 2px 6px rgba(22, 163, 74, 0.4);
         }
         .badge-cancelled {
             display: inline-block;
@@ -222,7 +277,7 @@
             color: #ffffff;
             background-color: #64748b;
             border-radius: 20px;
-            padding: 4px 12px;
+            padding: 5px 13px;
             margin-left: 8px;
         }
         .wait { font-size: 0.95rem; color: #64748b; }
@@ -231,10 +286,11 @@
             text-align: center;
             color: #64748b;
             font-size: 1.2rem;
-            padding: 48px 16px;
+            padding: 56px 16px;
             background-color: #ffffff;
             border: 2px dashed #cbd5e1;
-            border-radius: 12px;
+            border-radius: 16px;
+            box-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.08);
         }
     </style>
 </head>
@@ -264,7 +320,7 @@
             <% if (bills.length > 0) { %>
                 <div class="card-grid">
                     <% bills.forEach(function(b, i) { %>
-                        <section class="order-card<%= b.action === 'none' ? ' cancelled' : '' %>">
+                        <section class="order-card<%= b.action === 'accept' ? ' acc-new' : '' %><%= b.action === 'update' ? ' acc-cook' : '' %><%= b.action === 'serve' ? ' acc-serve' : '' %><%= b.action === 'none' ? ' cancelled' : '' %>">
                             <div class="card-head">
                                 <span class="table-name">โต๊ะ <%= b.table_number %><% if (b.hasNew) { %><span class="badge-new">ใหม่</span><% } %><% if (b.action === 'update') { %><span class="badge-cooking">กำลังปรุง</span><% } %><% if (b.action === 'serve') { %><span class="badge-ready">พร้อมเสิร์ฟ</span><% } %><% if (b.action === 'none') { %><span class="badge-cancelled">ยกเลิกแล้ว</span><% } %></span>
                                 <span class="order-time">#<%= bills.length - i %> · <%= b.firstTimeTh %> น. <span class="wait<%= b.maxWait > 10 ? ' wait-over' : '' %>">(รอ <%= b.maxWait %> นาที)</span></span>
